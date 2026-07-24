@@ -168,18 +168,73 @@
   .p-pct{font-size:12px;color:#6b7280;margin-top:2px;}
   .p-pct-num{font-weight:700;color:var(--navy);font-size:14px;margin-right:6px;}
   footer{text-align:center;color:#9aa3b2;font-size:12px;padding:24px;}
+
+  /* ============ 登录屏 ============ */
+  #loginScreen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(1400px 700px at 50% -12%,#13315a 0%,#0a1f3d 62%);}
+  #appRoot{display:none;}
+  #appRoot.show{display:block;}
+  .login-card{width:380px;max-width:92vw;background:#fff;border-radius:18px;padding:36px 38px 28px;
+    box-shadow:0 24px 70px rgba(0,0,0,.42);border-top:5px solid var(--gold);}
+  .login-brand{display:flex;align-items:center;gap:14px;margin-bottom:26px;}
+  .login-logo{width:54px;height:54px;border-radius:12px;background:linear-gradient(135deg,#0a1f3d,#13315a);
+    color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;letter-spacing:1px;flex:none;}
+  .login-title{font-size:18px;font-weight:800;color:var(--navy);letter-spacing:1px;}
+  .login-subtitle{font-size:12px;color:#8a93a0;margin-top:2px;}
+  .login-form label{display:flex;flex-direction:column;font-size:13px;color:#4b5563;gap:6px;margin-bottom:16px;}
+  .login-input{border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:14px;font-family:inherit;color:var(--ink);background:#fafbfc;}
+  .login-input:focus{outline:none;border-color:var(--blue);background:#fff;}
+  .login-err{display:none;color:var(--red);font-size:12px;margin:-8px 0 12px;}
+  .login-btn{width:100%;background:var(--gold);color:#1a1205;border:none;padding:12px;border-radius:9px;
+    font-size:15px;font-weight:800;letter-spacing:6px;cursor:pointer;}
+  .login-btn:hover{filter:brightness(1.07);}
+  .login-hint{margin-top:18px;text-align:center;font-size:12px;color:#9aa3b2;background:#f6f8fb;
+    border:1px dashed var(--line);padding:9px;border-radius:8px;line-height:1.7;}
+  .user-chip{font-size:12px;background:rgba(255,255,255,.12);color:var(--porcelain);padding:3px 12px;
+    border-radius:20px;border:1px solid rgba(255,255,255,.25);}
+
   @media print{
     header .toolbar,nav.tabs,.add-btn,.del,.hint{display:none!important;}
     body{background:#fff;}
     .node,.card,.block,.prog-wrap{box-shadow:none;}
+    #loginScreen{display:none!important;}
   }
 </style>
 </head>
 <body>
+
+<!-- ============ 登录屏 ============ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="login-logo">飞西</div>
+      <div>
+        <div class="login-title">飞西城市更新单元</div>
+        <div class="login-subtitle">报批工作台 · 后台登录</div>
+      </div>
+    </div>
+    <div class="login-form">
+      <label>管理员账号
+        <input id="lgUser" class="login-input" type="text" placeholder="请输入账号" autocomplete="off" onkeydown="if(event.key==='Enter')tryLogin()">
+      </label>
+      <label>密码
+        <input id="lgPass" class="login-input" type="password" placeholder="请输入密码" autocomplete="off" onkeydown="if(event.key==='Enter')tryLogin()">
+      </label>
+      <div class="login-err" id="lgErr"></div>
+      <button class="login-btn" onclick="tryLogin()">登 录</button>
+    </div>
+    <div class="login-hint">管理员账号：T10 / 高宏印　·　初始密码：aaaa1111</div>
+  </div>
+</div>
+
+<!-- ============ 应用主体（登录后显示） ============ -->
+<div id="appRoot">
 <header>
   <h1>飞西城市更新单元 · 报批工作台<small>计划调整 → 预售许可 全周期跟踪</small></h1>
   <div class="toolbar">
     <span id="saveStamp">尚未保存</span>
+    <span class="user-chip" id="curUser"></span>
+    <button class="btn ghost" onclick="logout()">退出</button>
     <button class="btn ghost" onclick="toggleCloud()">☁ 云端设置</button>
     <button class="btn ghost" onclick="saveAsFile()">保存为文件</button>
     <button class="btn ghost" onclick="exportBackup()">导出备份</button>
@@ -524,9 +579,40 @@
 </section>
 
 <footer>飞西城市更新单元 · 报批工作台 ｜ 填的数据实时存本机浏览器；启用「☁ 云端设置」后自动回写 GitHub 仓库，换设备打开即最新。建议定期「导出 / 打印」留档。</footer>
+</div><!-- /appRoot -->
 
 <script>
   const KEY = 'feixi_approval_workbench_v1';
+
+  /* ===== 登录校验（轻量本地校验：账号密码仅存于本文件，不上传任何服务器） ===== */
+  const USERS = { 'T10':'aaaa1111', '高宏印':'aaaa1111' }; /* 后续新增管理员在此追加一行即可 */
+  const AUTH_KEY = 'feixi_auth_user';
+  function tryLogin(){
+    const u = document.getElementById('lgUser').value.trim();
+    const p = document.getElementById('lgPass').value;
+    const err = document.getElementById('lgErr');
+    if(USERS[u] && USERS[u]===p){
+      localStorage.setItem(AUTH_KEY, u);
+      showApp();
+    } else {
+      err.textContent = '账号或密码错误，请重试';
+      err.style.display = 'block';
+    }
+  }
+  function showApp(){
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appRoot').classList.add('show');
+    const u = localStorage.getItem(AUTH_KEY) || '';
+    document.getElementById('curUser').textContent = '管理员：' + u;
+  }
+  function logout(){
+    localStorage.removeItem(AUTH_KEY);
+    document.getElementById('appRoot').classList.remove('show');
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('lgUser').value = '';
+    document.getElementById('lgPass').value = '';
+    document.getElementById('lgErr').style.display = 'none';
+  }
   function switchTab(t){
     document.getElementById('page-board').classList.toggle('hidden', t!=='board');
     document.getElementById('page-flow').classList.toggle('hidden', t!=='flow');
@@ -802,6 +888,12 @@
     loadAll();
     const cfg=loadCfg();
     if(cfg && cfg.enabled==='yes' && cfg.token && cfg.owner && cfg.repo){ syncFromCloud(); }
+    // 登录态判断：已登录则直接进入，否则停留在登录屏
+    if(localStorage.getItem(AUTH_KEY)){ showApp(); }
+    else {
+      document.getElementById('loginScreen').style.display='flex';
+      document.getElementById('appRoot').classList.remove('show');
+    }
   });
 </script>
 </body>
