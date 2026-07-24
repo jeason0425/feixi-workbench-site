@@ -149,6 +149,11 @@
   .subnode select.ed-input{width:96px;}
   .add-sub{margin-top:8px;align-self:flex-start;background:#fff;border:1px dashed var(--blue);color:var(--blue);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;}
   .add-sub:hover{background:#eef3ff;}
+  #appRoot.readonly [contenteditable]{outline:none !important;cursor:default;}
+  #appRoot.readonly .user-chip{background:rgba(201,162,39,.18);color:var(--gold);border-color:var(--gold);}
+  #appRoot.readonly .edit-hint{display:none;}
+  #appRoot.readonly .ro-hint{display:block;background:rgba(201,162,39,.12);border:1px dashed var(--gold);color:#8a6d1b;padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:12px;}
+  #appRoot:not(.readonly) .ro-hint{display:none;}
   .warn-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap;}
   .warn-badge.w-none{background:#eef1f5;color:#9aa3af;}
   .warn-badge.w-ok{background:#eafaf3;color:var(--green);}
@@ -344,9 +349,9 @@
     <span id="saveStamp">尚未保存</span>
     <span class="user-chip" id="curUser"></span>
     <button class="btn ghost" onclick="logout()">退出</button>
-    <button class="btn ghost" onclick="toggleCloud()">☁ 云端设置</button>
-    <button class="btn ghost" onclick="saveAsFile()">保存为文件</button>
-    <button class="btn ghost" onclick="exportBackup()">导出备份</button>
+    <button class="btn ghost" id="cloudBtn" onclick="toggleCloud()">☁ 云端设置</button>
+    <button class="btn ghost" id="btnSaveFile" onclick="saveAsFile()">保存为文件</button>
+    <button class="btn ghost" id="btnExport" onclick="exportBackup()">导出备份</button>
     <button class="btn ghost" onclick="window.print()">打印</button>
   </div>
 </header>
@@ -391,7 +396,8 @@
 
 <!-- ===================== 报批看板 ===================== -->
 <section class="page" id="page-board">
-  <div class="hint">本页所有<b>数字、状态、日期、备注均可直接点击修改</b>（双击或点中选区即可编辑），修改后<b>自动保存到本机浏览器</b>，下次打开自动恢复。点「＋添加指标」可扩展看板。「导出 / 打印」可生成 PDF 或纸质稿。</div>
+  <div class="hint edit-hint">本页所有<b>数字、状态、日期、备注均可直接点击修改</b>（双击或点中选区即可编辑），修改后<b>自动保存到本机浏览器</b>，下次打开自动恢复。点「＋添加指标」可扩展看板。「导出 / 打印」可生成 PDF 或纸质稿。</div>
+  <div class="ro-hint">当前为只读模式，仅可查看 / 打印，不可编辑。</div>
 
   <div class="section-title">核心指标（KPI）</div>
   <div class="kpi-row" id="kpiRow">
@@ -472,7 +478,8 @@
 
 <!-- ===================== 报建流程节点 ===================== -->
 <section class="page hidden" id="page-flow">
-  <div class="hint">从<b>计划调整</b>到<b>取得预售许可</b>的全报批报建节点。每个节点可改<b>责任单位 / 目标时间 / 前置条件 / 状态 / 备注</b>，状态自动着色（灰=未启动 蓝=进行中 绿=已完成 红=受阻），顶部进度条实时计算。点「＋添加节点」可插入新节点。</div>
+  <div class="hint edit-hint">从<b>计划调整</b>到<b>取得预售许可</b>的全报批报建节点。每个节点可改<b>责任单位 / 目标时间 / 前置条件 / 状态 / 备注</b>，状态自动着色（灰=未启动 蓝=进行中 绿=已完成 红=受阻），顶部进度条实时计算。点「＋添加节点」可插入新节点。</div>
+  <div class="ro-hint">当前为只读模式，仅可查看 / 打印，不可编辑。</div>
 
   <div class="prog-wrap">
     <div class="prog-top">
@@ -506,7 +513,8 @@
 
 <!-- ===================== 前置许可 ===================== -->
 <section class="page hidden" id="page-permit">
-  <div class="hint">四条<b>长周期外部意见</b>单独盯防——这些往往比主线节点更慢、更容易卡报批。每项可改<b>责任单位 / 预计时长 / 状态 / 备注</b>，状态自动着色（灰=未启动 蓝=进行中 绿=已完成 红=受阻）。点「＋ 添加许可项」可补充。</div>
+  <div class="hint edit-hint">四条<b>长周期外部意见</b>单独盯防——这些往往比主线节点更慢、更容易卡报批。每项可改<b>责任单位 / 预计时长 / 状态 / 备注</b>，状态自动着色（灰=未启动 蓝=进行中 绿=已完成 红=受阻）。点「＋ 添加许可项」可补充。</div>
+  <div class="ro-hint">当前为只读模式，仅可查看 / 打印，不可编辑。</div>
 
   <div id="permitList">
 <div class="permit s-未启动"><div class="permit-head"><span class="permit-name">轨道安全保护区书面同意（48,420.2㎡ / 16号线）</span><span class="permit-tag red">头号长周期</span></div><div class="permit-body"><label>责任单位<input class="ed-input" data-key="permit_rail_owner" value="轨道集团（深圳）"></label><label>预计时长<input class="ed-input" data-key="permit_rail_dur" value="数月"></label><label>依赖类型<select class="dep-sel ed-input" data-key="permit_rail_dep"><option>内部可控</option><option selected>外部依赖</option></select></label><label>状态<select class="status-sel s-未启动" data-key="permit_rail_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label><div class="node-note ed" contenteditable data-key="permit_rail_note">最慢外部意见，须轨道单位书面同意；建议现在并联启动，不等实施主体确认。</div></div></div>
@@ -526,8 +534,14 @@
   /* ===== 登录校验（轻量本地校验；源码仅存 SHA-256 哈希，账号/密码明文均不写入源码） ===== */
   const PWHASH = {
     'f7ef0de37031bc151f0008066f39fedf7bab4316d853466e802040650a66a324':'754068f93ca0903e1db7f0ad3ec5a616179c738f462959dd2380b6e2743680db',
-    'ab7f9cb8ab3e3470bc55415754933d02b3539360289c66c3bfb7926ef534b4ff':'754068f93ca0903e1db7f0ad3ec5a616179c738f462959dd2380b6e2743680db'
-  }; /* 新增管理员：SHA-256(账号) -> SHA-256(密码)；用 crypto.subtle 或本机 SHA-256 生成 */
+    'ab7f9cb8ab3e3470bc55415754933d02b3539360289c66c3bfb7926ef534b4ff':'754068f93ca0903e1db7f0ad3ec5a616179c738f462959dd2380b6e2743680db',
+    '35bafb1ce99aef3ab068afbaabae8f21fd9b9f02d3a9442e364fa92c0b3eeef0':'8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'
+  }; /* SHA-256(账号) -> SHA-256(密码)；源码零明文。T10/高宏印=aaaa1111(admin)，stuff=123456(只读) */
+  const ROLES = {
+    'f7ef0de37031bc151f0008066f39fedf7bab4316d853466e802040650a66a324':'admin',
+    'ab7f9cb8ab3e3470bc55415754933d02b3539360289c66c3bfb7926ef534b4ff':'admin',
+    '35bafb1ce99aef3ab068afbaabae8f21fd9b9f02d3a9442e364fa92c0b3eeef0':'readonly'
+  };
   const AUTH_KEY = 'feixi_auth_user';
   async function sha256Hex(s){
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
@@ -542,6 +556,7 @@
     catch(e){ err.textContent='当前浏览器不支持加密校验，请用 https 链接打开本系统'; err.style.display='block'; return; }
     if(PWHASH[uh] && PWHASH[uh]===h){
       localStorage.setItem(AUTH_KEY, u);
+      localStorage.setItem('feixi_auth_role', ROLES[uh] || 'admin');
       showApp();
     } else {
       err.textContent = '账号或密码错误，请重试';
@@ -552,16 +567,45 @@
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appRoot').classList.add('show');
     const u = localStorage.getItem(AUTH_KEY) || '';
-    document.getElementById('curUser').textContent = '管理员：' + u;
+    const role = localStorage.getItem('feixi_auth_role') || 'admin';
+    document.getElementById('curUser').textContent = (role==='readonly'?'浏览者：':'管理员：') + u;
+    setReadonly(role==='readonly');
+    if(role==='readonly' && typeof syncFromCloud==='function'){
+      const cfg = (typeof loadCfg==='function') ? loadCfg() : null;
+      if(cfg && cfg.enabled==='yes') syncFromCloud();
+    }
   }
   function logout(){
     localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem('feixi_auth_role');
+    setReadonly(false);
     document.getElementById('appRoot').classList.remove('show');
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('lgUser').value = '';
     document.getElementById('lgPass').value = '';
     document.getElementById('lgErr').style.display = 'none';
   }
+  function setReadonly(on){
+    const app=document.getElementById('appRoot');
+    const fields=app.querySelectorAll('[data-key]');
+    const adds=app.querySelectorAll('.add-btn, .add-sub, .del');
+    const editBtns=['cloudBtn','btnSaveFile','btnExport'].map(id=>document.getElementById(id)).filter(Boolean);
+    const stamp=document.getElementById('saveStamp');
+    if(on){
+      app.classList.add('readonly');
+      fields.forEach(el=>{ if(el.tagName==='INPUT'||el.tagName==='SELECT') el.disabled=true; else el.setAttribute('contenteditable','false'); });
+      adds.forEach(b=>b.style.display='none');
+      editBtns.forEach(b=>b.style.display='none');
+      if(stamp) stamp.style.display='none';
+    } else {
+      app.classList.remove('readonly');
+      fields.forEach(el=>{ if(el.tagName==='INPUT'||el.tagName==='SELECT') el.disabled=false; else el.setAttribute('contenteditable','true'); });
+      adds.forEach(b=>b.style.display='');
+      editBtns.forEach(b=>b.style.display='');
+      if(stamp) stamp.style.display='';
+    }
+  }
+
   function switchTab(t){
     document.getElementById('page-board').classList.toggle('hidden', t!=='board');
     document.getElementById('page-flow').classList.toggle('hidden', t!=='flow');
