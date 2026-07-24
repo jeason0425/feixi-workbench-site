@@ -138,6 +138,35 @@
   .node-note{grid-column:1/-1;font-size:13px;color:#4b5563;background:#fafbfc;border:1px solid var(--line);
     border-radius:6px;padding:7px 10px;min-height:34px;}
 
+  /* 前置许可 */
+  .permit{background:#fff;border:1px solid var(--line);border-left:5px solid var(--gray);border-radius:10px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(10,31,61,.05);}
+  .permit.s-未启动{border-left-color:var(--gray);}
+  .permit.s-进行中{border-left-color:var(--blue);}
+  .permit.s-已完成{border-left-color:var(--green);}
+  .permit.s-受阻{border-left-color:var(--red);}
+  .permit-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .permit-name{font-size:15px;font-weight:700;color:var(--navy);flex:1;}
+  .permit-tag{font-size:11px;padding:1px 9px;border-radius:5px;background:#fff0f1;color:var(--red);font-weight:600;}
+  .permit-tag.blue{background:#eef3ff;color:var(--blue);}
+  .permit-tag.green{background:#eafaf3;color:var(--green);}
+  .permit-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px 16px;}
+  /* 卡点汇总 */
+  .blockage{border:1px solid var(--red);background:#fff5f6;border-left:5px solid var(--red);border-radius:10px;padding:14px 18px;margin-bottom:18px;box-shadow:0 1px 3px rgba(182,0,24,.08);}
+  .blockage h3{margin:0 0 10px;font-size:14px;color:var(--red);border-left:4px solid var(--red);padding-left:8px;}
+  .blockage .bk-item{display:flex;gap:8px;padding:6px 0;border-bottom:1px dashed #f1c9cd;font-size:13px;}
+  .blockage .bk-item:last-child{border-bottom:none;}
+  .blockage .bk-idx{background:var(--red);color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none;}
+  .blockage .bk-name{font-weight:700;color:var(--navy);}
+  .blockage .bk-note{color:#6b7280;}
+  .blockage.empty{background:#f3faf6;border-color:var(--green);border-left-color:var(--green);}
+  .blockage.empty h3{color:var(--green);border-left-color:var(--green);}
+  /* 分期进度面积输入 */
+  .p-fields{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0;}
+  .p-fields label{display:flex;flex-direction:column;font-size:12px;color:#6b7280;gap:3px;flex:1;min-width:130px;}
+  .p-fields .ph-area{border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:13px;font-family:inherit;color:var(--ink);background:#fafbfc;}
+  .p-fields .ph-area:focus{outline:none;border-color:var(--blue);background:#fff;}
+  .p-pct{font-size:12px;color:#6b7280;margin-top:2px;}
+  .p-pct-num{font-weight:700;color:var(--navy);font-size:14px;margin-right:6px;}
   footer{text-align:center;color:#9aa3b2;font-size:12px;padding:24px;}
   @media print{
     header .toolbar,nav.tabs,.add-btn,.del,.hint{display:none!important;}
@@ -193,6 +222,7 @@
 <nav class="tabs">
   <button id="tab-board" class="active" onclick="switchTab('board')">报批看板</button>
   <button id="tab-flow" onclick="switchTab('flow')">报建流程节点</button>
+  <button id="tab-permit" onclick="switchTab('permit')">前置许可</button>
 </nav>
 
 <!-- ===================== 报批看板 ===================== -->
@@ -238,18 +268,30 @@
       <h3>分期进度（四三二期 时序）</h3>
       <div class="phase">
         <div class="p-head"><span>新二期（原四期 02-10）· 优先</span><span class="tag">拆4.65万 / 容11.66万</span></div>
-        <div class="p-sub">现状：<span class="ed" contenteditable data-key="ph2_sub">待填意愿率 / 拆迁率</span></div>
-        <div class="bar"><i style="width:0%"></i></div>
+        <div class="p-fields">
+          <label>已拆面积(㎡)<input class="ed-input ph-area" data-key="ph2_demo" value="0"></label>
+          <label>拆迁总面积(㎡)<input class="ed-input ph-area" data-key="ph2_total" value="46500"></label>
+        </div>
+        <div class="p-pct"><span class="p-pct-num" id="ph2_pct">0%</span><span class="p-sub">拆迁面积率（填数自动算）</span></div>
+        <div class="bar"><i id="ph2_fill" style="width:0%"></i></div>
       </div>
       <div class="phase">
         <div class="p-head"><span>新三期（原三期 02-07）</span><span class="tag">拆4.51万 / 容15.77万</span></div>
-        <div class="p-sub">现状：<span class="ed" contenteditable data-key="ph3_sub">待填意愿率 / 拆迁率</span></div>
-        <div class="bar"><i style="width:0%"></i></div>
+        <div class="p-fields">
+          <label>已拆面积(㎡)<input class="ed-input ph-area" data-key="ph3_demo" value="0"></label>
+          <label>拆迁总面积(㎡)<input class="ed-input ph-area" data-key="ph3_total" value="45100"></label>
+        </div>
+        <div class="p-pct"><span class="p-pct-num" id="ph3_pct">0%</span><span class="p-sub">拆迁面积率（填数自动算）</span></div>
+        <div class="bar"><i id="ph3_fill" style="width:0%"></i></div>
       </div>
       <div class="phase">
         <div class="p-head"><span>新四期（原二期 02-01+02-02）</span><span class="tag">拆6.82万 / 容33.08万</span></div>
-        <div class="p-sub">现状：<span class="ed" contenteditable data-key="ph4_sub">待填意愿率 / 拆迁率</span></div>
-        <div class="bar"><i style="width:0%"></i></div>
+        <div class="p-fields">
+          <label>已拆面积(㎡)<input class="ed-input ph-area" data-key="ph4_demo" value="0"></label>
+          <label>拆迁总面积(㎡)<input class="ed-input ph-area" data-key="ph4_total" value="68200"></label>
+        </div>
+        <div class="p-pct"><span class="p-pct-num" id="ph4_pct">0%</span><span class="p-sub">拆迁面积率（填数自动算）</span></div>
+        <div class="bar"><i id="ph4_fill" style="width:0%"></i></div>
       </div>
     </div>
 
@@ -276,6 +318,7 @@
     <div class="prog-bar"><i id="progFill" style="width:0%"></i></div>
   </div>
 
+  <div class="blockage" id="blockageSummary"></div>
   <div id="nodeList">
     <!-- 节点1 -->
     <div class="node s-进行中">
@@ -435,6 +478,51 @@
   <button class="add-btn" onclick="addNode()">＋ 添加节点</button>
 </section>
 
+<!-- ===================== 前置许可 ===================== -->
+<section class="page hidden" id="page-permit">
+  <div class="hint">四条<b>长周期外部意见</b>单独盯防——这些往往比主线节点更慢、更容易卡报批。每项可改<b>责任单位 / 预计时长 / 状态 / 备注</b>，状态自动着色（灰=未启动 蓝=进行中 绿=已完成 红=受阻）。点「＋ 添加许可项」可补充。</div>
+
+  <div id="permitList">
+    <div class="permit s-未启动">
+      <div class="permit-head"><span class="permit-name">轨道安全保护区书面同意（48,420.2㎡ / 16号线）</span><span class="permit-tag red">头号长周期</span></div>
+      <div class="permit-body">
+        <label>责任单位<input class="ed-input" data-key="permit_rail_owner" value="轨道集团（深圳）"></label>
+        <label>预计时长<input class="ed-input" data-key="permit_rail_dur" value="数月"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="permit_rail_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="permit_rail_note">最慢外部意见，须轨道单位书面同意；建议现在并联启动，不等实施主体确认。</div>
+      </div>
+    </div>
+    <div class="permit s-未启动">
+      <div class="permit-head"><span class="permit-name">城市蓝线调整（16,815.6㎡）</span></div>
+      <div class="permit-body">
+        <label>责任单位<input class="ed-input" data-key="permit_blue_owner" value="水务 / 规资部门"></label>
+        <label>预计时长<input class="ed-input" data-key="permit_blue_dur" value=""></label>
+        <label>状态<select class="status-sel s-未启动" data-key="permit_blue_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="permit_blue_note">蓝线调整需与规划修改同步推进。</div>
+      </div>
+    </div>
+    <div class="permit s-未启动">
+      <div class="permit-head"><span class="permit-name">历史建筑保护（钟氏祠堂 / 王氏宗祠 / 曾氏祖屋2座，2,203.4㎡）</span></div>
+      <div class="permit-body">
+        <label>责任单位<input class="ed-input" data-key="permit_hist_owner" value="文物 / 住建部门"></label>
+        <label>预计时长<input class="ed-input" data-key="permit_hist_dur" value=""></label>
+        <label>状态<select class="status-sel s-未启动" data-key="permit_hist_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="permit_hist_note">需保护方案评估，迁改或原址保留需明确。</div>
+      </div>
+    </div>
+    <div class="permit s-未启动">
+      <div class="permit-head"><span class="permit-name">古树名木（后备1 + 老树5 + 大树28）</span></div>
+      <div class="permit-body">
+        <label>责任单位<input class="ed-input" data-key="permit_tree_owner" value="城管 / 绿化部门"></label>
+        <label>预计时长<input class="ed-input" data-key="permit_tree_dur" value=""></label>
+        <label>状态<select class="status-sel s-未启动" data-key="permit_tree_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="permit_tree_note">古树保护方案，避让或移植审批。</div>
+      </div>
+    </div>
+  </div>
+  <button class="add-btn" onclick="addPermit()">＋ 添加许可项</button>
+</section>
+
 <footer>飞西城市更新单元 · 报批工作台 ｜ 填的数据实时存本机浏览器；启用「☁ 云端设置」后自动回写 GitHub 仓库，换设备打开即最新。建议定期「导出 / 打印」留档。</footer>
 
 <script>
@@ -442,8 +530,10 @@
   function switchTab(t){
     document.getElementById('page-board').classList.toggle('hidden', t!=='board');
     document.getElementById('page-flow').classList.toggle('hidden', t!=='flow');
+    document.getElementById('page-permit').classList.toggle('hidden', t!=='permit');
     document.getElementById('tab-board').classList.toggle('active', t==='board');
     document.getElementById('tab-flow').classList.toggle('active', t==='flow');
+    document.getElementById('tab-permit').classList.toggle('active', t==='permit');
   }
   function stamp(){
     const d=new Date();
@@ -473,12 +563,13 @@
       else el.innerHTML=v;
     });
     updateProgress();
+    computePhaseBars();
     if(Object.keys(data).length) stamp();
   }
   function paintStatus(sel){
     sel.className='status-sel s-'+sel.value;
-    const node=sel.closest('.node');
-    if(node) node.className='node s-'+sel.value;
+    const box=sel.closest('.node')||sel.closest('.permit');
+    if(box){ box.className=(box.classList.contains('node')?'node ':'permit ')+'s-'+sel.value; }
   }
   function updateProgress(){
     const sels=[...document.querySelectorAll('.status-sel')];
@@ -488,6 +579,7 @@
     document.getElementById('progFill').style.width=pct+'%';
     document.getElementById('progText').textContent='已完成 '+done+' / '+total+' 节点（'+pct+'%）';
     sels.forEach(paintStatus);
+    renderBlockage();
   }
   function delNode(btn){
     btn.closest('.node').remove();
@@ -518,6 +610,22 @@
     list.appendChild(div);
     saveAll(); updateProgress();
   }
+  function addPermit(){
+    const list=document.getElementById('permitList');
+    const n=Date.now();
+    const div=document.createElement('div');
+    div.className='permit s-未启动';
+    div.innerHTML=
+      '<div class="permit-head"><span class="permit-name ed" contenteditable data-key="permit_x_'+n+'_name">新许可项</span></div>'+
+      '<div class="permit-body">'+
+      '<label>责任单位<input class="ed-input" data-key="permit_x_'+n+'_owner" value=""></label>'+
+      '<label>预计时长<input class="ed-input" data-key="permit_x_'+n+'_dur" value=""></label>'+
+      '<label>状态<select class="status-sel s-未启动" data-key="permit_x_'+n+'_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>'+
+      '<div class="node-note ed" contenteditable data-key="permit_x_'+n+'_note">备注…</div>'+
+      '</div>';
+    list.appendChild(div);
+    saveAll();
+  }
   function addKpi(){
     const wrap=document.getElementById('kpiRow');
     const k='kpi_x_'+Date.now();
@@ -528,8 +636,42 @@
     wrap.appendChild(div);
     saveAll();
   }
+  // 分期拆迁面积率自动计算
+  function computePhaseBars(){
+    ['2','3','4'].forEach(n=>{
+      const demo=parseFloat((document.querySelector('[data-key="ph'+n+'_demo"]')||{}).value)||0;
+      const total=parseFloat((document.querySelector('[data-key="ph'+n+'_total"]')||{}).value)||0;
+      const pct= total>0? Math.min(100, Math.round(demo/total*100)) : 0;
+      const fill=document.getElementById('ph'+n+'_fill');
+      const pctEl=document.getElementById('ph'+n+'_pct');
+      if(fill) fill.style.width=pct+'%';
+      if(pctEl) pctEl.textContent=pct+'%';
+    });
+  }
+  // 卡点汇总（受阻节点）
+  function renderBlockage(){
+    const box=document.getElementById('blockageSummary');
+    if(!box) return;
+    const blocked=[...document.querySelectorAll('#nodeList .node')].filter(n=>{
+      const s=n.querySelector('.status-sel'); return s && s.value==='受阻';
+    });
+    if(!blocked.length){
+      box.className='blockage empty';
+      box.innerHTML='<h3>当前卡点（受阻节点）</h3><div style="font-size:13px;color:#1F9D6B;">✓ 暂无受阻节点，报批管线通畅。</div>';
+      return;
+    }
+    box.className='blockage';
+    let html='<h3>⚠ 当前卡点（受阻节点 · '+blocked.length+' 项）</h3>';
+    blocked.forEach((n,i)=>{
+      const name=n.querySelector('.node-name').textContent.trim();
+      const note=n.querySelector('.node-note').textContent.trim();
+      html+='<div class="bk-item"><span class="bk-idx">'+(i+1)+'</span><div><span class="bk-name">'+name+'</span>'
+        + (note? ' — <span class="bk-note">'+note+'</span>':'') + '</div></div>';
+    });
+    box.innerHTML=html;
+  }
   // 事件委托：任意编辑即保存
-  document.addEventListener('input', e=>{ if(e.target.closest('[data-key]')) saveAll(); });
+  document.addEventListener('input', e=>{ if(e.target.closest('[data-key]')){ saveAll(); if(e.target.classList.contains('ph-area')) computePhaseBars(); } });
   document.addEventListener('change', e=>{ if(e.target.closest('[data-key]')){ if(e.target.tagName==='SELECT') paintStatus(e.target); saveAll(); updateProgress(); } });
   // 将当前填写的数据固化进 HTML 并下载（用于覆盖源文件，使数据不依赖浏览器缓存）
   function saveAsFile(){
