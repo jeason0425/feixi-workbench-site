@@ -223,7 +223,7 @@
       <div class="login-err" id="lgErr"></div>
       <button class="login-btn" onclick="tryLogin()">登 录</button>
     </div>
-    <div class="login-hint">管理员账号：T10 / 高宏印　·　初始密码：aaaa1111</div>
+    <div class="login-hint">内部工作系统 · 仅限授权管理员登录，请勿泄露账号信息</div>
   </div>
 </div>
 
@@ -584,14 +584,24 @@
 <script>
   const KEY = 'feixi_approval_workbench_v1';
 
-  /* ===== 登录校验（轻量本地校验：账号密码仅存于本文件，不上传任何服务器） ===== */
-  const USERS = { 'T10':'aaaa1111', '高宏印':'aaaa1111' }; /* 后续新增管理员在此追加一行即可 */
+  /* ===== 登录校验（轻量本地校验；源码仅存 SHA-256 哈希，账号/密码明文均不写入源码） ===== */
+  const PWHASH = {
+    'f7ef0de37031bc151f0008066f39fedf7bab4316d853466e802040650a66a324':'754068f93ca0903e1db7f0ad3ec5a616179c738f462959dd2380b6e2743680db',
+    'ab7f9cb8ab3e3470bc55415754933d02b3539360289c66c3bfb7926ef534b4ff':'754068f93ca0903e1db7f0ad3ec5a616179c738f462959dd2380b6e2743680db'
+  }; /* 新增管理员：SHA-256(账号) -> SHA-256(密码)；用 crypto.subtle 或本机 SHA-256 生成 */
   const AUTH_KEY = 'feixi_auth_user';
-  function tryLogin(){
+  async function sha256Hex(s){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  async function tryLogin(){
     const u = document.getElementById('lgUser').value.trim();
     const p = document.getElementById('lgPass').value;
     const err = document.getElementById('lgErr');
-    if(USERS[u] && USERS[u]===p){
+    let uh, h;
+    try { uh = await sha256Hex(u); h = await sha256Hex(p); }
+    catch(e){ err.textContent='当前浏览器不支持加密校验，请用 https 链接打开本系统'; err.style.display='block'; return; }
+    if(PWHASH[uh] && PWHASH[uh]===h){
       localStorage.setItem(AUTH_KEY, u);
       showApp();
     } else {
