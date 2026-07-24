@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>飞西城市更新单元 · 报批工作台</title>
+<style>
+  :root{
+    --navy:#0a1f3d;        /* 深靛蓝 */
+    --porcelain:#f1f3f5;   /* 瓷白 */
+    --gold:#C9A227;        /* 金 */
+    --ink:#262626;
+    --line:#dfe4ea;
+    --blue:#0529FF;
+    --green:#1F9D6B;
+    --red:#B60018;
+    --gray:#9aa3b2;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;
+    background:var(--porcelain);color:var(--ink);font-size:14px;line-height:1.6;
+  }
+  header{
+    background:var(--navy);color:var(--porcelain);padding:14px 26px;
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+  }
+  header h1{font-size:19px;margin:0;font-weight:700;letter-spacing:1px;}
+  header h1 small{font-size:12px;font-weight:400;opacity:.7;margin-left:10px;}
+  .toolbar{display:flex;align-items:center;gap:12px;font-size:12px;}
+  #saveStamp{opacity:.8;}
+  .btn{
+    background:var(--gold);color:#1a1205;border:none;padding:6px 14px;border-radius:6px;
+    font-size:13px;font-weight:600;cursor:pointer;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn.ghost{background:transparent;color:var(--porcelain);border:1px solid rgba(255,255,255,.4);}
+  nav.tabs{display:flex;gap:4px;background:#fff;border-bottom:2px solid var(--line);padding:0 20px;}
+  nav.tabs button{
+    background:none;border:none;padding:13px 22px;font-size:15px;font-weight:600;color:#6b7280;
+    cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;
+  }
+  nav.tabs button.active{color:var(--navy);border-bottom-color:var(--gold);}
+  .page{padding:22px 26px;max-width:1280px;margin:0 auto;}
+  .page.hidden{display:none;}
+  .section-title{
+    font-size:16px;font-weight:700;color:var(--navy);margin:6px 0 14px;
+    display:flex;align-items:center;gap:10px;
+  }
+  .section-title::before{content:"";width:5px;height:18px;background:var(--gold);border-radius:2px;display:inline-block;}
+  .hint{font-size:12px;color:#8a93a0;background:#fff;border:1px dashed var(--line);
+    padding:8px 14px;border-radius:8px;margin-bottom:18px;}
+  .hint b{color:var(--navy);}
+
+  /* 看板 */
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:8px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    box-shadow:0 1px 3px rgba(10,31,61,.05);}
+  .kpi .kpi-label{font-size:12px;color:#6b7280;margin-bottom:6px;}
+  .kpi .kpi-num{font-size:22px;font-weight:700;color:var(--navy);}
+  .kpi .kpi-num.gold{color:var(--gold);}
+  .kpi .kpi-num.red{color:var(--red);}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px;}
+  @media(max-width:880px){.grid-2{grid-template-columns:1fr;}}
+  .block{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px;
+    box-shadow:0 1px 3px rgba(10,31,61,.05);}
+  .block h3{margin:0 0 12px;font-size:14px;color:var(--navy);border-left:4px solid var(--gold);padding-left:8px;}
+  .metric{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line);}
+  .metric:last-child{border-bottom:none;}
+  .metric .m-label{font-size:13px;color:#4b5563;}
+  .metric .m-val{font-weight:700;color:var(--navy);font-size:15px;}
+  .metric .m-val.red{color:var(--red);}
+  .metric .m-val.gold{color:var(--gold);}
+  .metric .m-val.green{color:var(--green);}
+  .redline{font-size:11px;color:var(--red);margin-left:6px;}
+  .bar{height:8px;background:#eef1f5;border-radius:5px;overflow:hidden;margin-top:6px;}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,#0529FF,#3D7BFF);border-radius:5px;}
+  .bar.red > i{background:linear-gradient(90deg,#B60018,#e0586a);}
+  .bar.gold > i{background:linear-gradient(90deg,#C9A227,#e8c452);}
+  .phase{margin-bottom:14px;}
+  .phase:last-child{margin-bottom:0;}
+  .phase .p-head{display:flex;justify-content:space-between;font-weight:700;color:var(--navy);margin-bottom:4px;}
+  .phase .p-head .tag{font-size:11px;background:#eef3ff;color:var(--blue);padding:1px 8px;border-radius:5px;font-weight:600;}
+  .phase .p-sub{font-size:12px;color:#6b7280;margin-bottom:6px;}
+  .ed{outline:none;}
+  .ed:focus{background:#fff8e1;border-radius:3px;}
+  .add-btn{margin-top:12px;background:#fff;border:1px dashed var(--blue);color:var(--blue);
+    padding:7px 14px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;}
+  .add-btn:hover{background:#eef3ff;}
+
+  /* 云端同步面板 */
+  .cloud-panel{background:#0e2747;border-top:1px solid rgba(255,255,255,.08);color:var(--porcelain);
+    padding:0 26px;max-height:0;overflow:hidden;transition:max-height .35s ease,padding .35s ease;}
+  .cloud-panel.open{max-height:520px;padding:16px 26px;}
+  .cloud-panel h4{margin:0 0 10px;font-size:13px;color:var(--gold);font-weight:700;}
+  .cloud-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 16px;align-items:end;}
+  .cloud-grid label{display:flex;flex-direction:column;font-size:12px;color:#c4cde0;gap:4px;}
+  .cloud-input{border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:6px 9px;font-size:13px;
+    color:#fff;background:#13315a;font-family:inherit;width:100%;}
+  .cloud-input:focus{outline:none;border-color:var(--gold);background:#163a68;}
+  .cloud-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;}
+  .cloud-actions .btn{font-size:12px;padding:5px 12px;}
+  .cloud-actions .btn.tiny{background:#163a68;color:#cfe0ff;border:1px solid rgba(255,255,255,.18);}
+  .cloud-status{font-size:12px;color:#9fd6ff;margin-left:auto;}
+  .cloud-note{font-size:11px;color:#8aa0c4;margin-top:10px;line-height:1.7;}
+  .cloud-note code{background:#0a1f3d;padding:1px 5px;border-radius:3px;color:#cfe0ff;}
+
+  /* 流程节点 */
+  .prog-wrap{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-bottom:18px;
+    box-shadow:0 1px 3px rgba(10,31,61,.05);}
+  .prog-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .prog-top .pt-title{font-weight:700;color:var(--navy);}
+  .prog-top .pt-text{font-size:13px;color:#6b7280;}
+  .prog-bar{height:12px;background:#eef1f5;border-radius:7px;overflow:hidden;}
+  .prog-bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--green),#4fd09a);border-radius:7px;transition:width .4s;}
+  .node{background:#fff;border:1px solid var(--line);border-left:5px solid var(--gray);border-radius:10px;
+    padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(10,31,61,.05);}
+  .node.s-未启动{border-left-color:var(--gray);}
+  .node.s-进行中{border-left-color:var(--blue);}
+  .node.s-已完成{border-left-color:var(--green);}
+  .node.s-受阻{border-left-color:var(--red);}
+  .node-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .node-idx{background:var(--navy);color:#fff;width:26px;height:26px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none;}
+  .node-name{font-size:15px;font-weight:700;color:var(--navy);flex:1;}
+  .del{background:#fff;border:1px solid var(--line);color:var(--red);border-radius:6px;
+    width:26px;height:26px;cursor:pointer;font-size:14px;line-height:1;}
+  .del:hover{background:#fff0f1;}
+  .node-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px 16px;}
+  .node-body label{display:flex;flex-direction:column;font-size:12px;color:#6b7280;gap:3px;}
+  .ed-input,.status-sel{border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:13px;
+    color:var(--ink);background:#fafbfc;width:100%;font-family:inherit;}
+  .ed-input:focus,.status-sel:focus{outline:none;border-color:var(--blue);background:#fff;}
+  .status-sel.s-未启动{color:var(--gray);}
+  .status-sel.s-进行中{color:var(--blue);font-weight:600;}
+  .status-sel.s-已完成{color:var(--green);font-weight:600;}
+  .status-sel.s-受阻{color:var(--red);font-weight:600;}
+  .node-note{grid-column:1/-1;font-size:13px;color:#4b5563;background:#fafbfc;border:1px solid var(--line);
+    border-radius:6px;padding:7px 10px;min-height:34px;}
+
+  /* 前置许可 */
+  .permit{background:#fff;border:1px solid var(--line);border-left:5px solid var(--gray);border-radius:10px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(10,31,61,.05);}
+  .permit.s-未启动{border-left-color:var(--gray);}
+  .permit.s-进行中{border-left-color:var(--blue);}
+  .permit.s-已完成{border-left-color:var(--green);}
+  .permit.s-受阻{border-left-color:var(--red);}
+  .permit-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .permit-name{font-size:15px;font-weight:700;color:var(--navy);flex:1;}
+  .permit-tag{font-size:11px;padding:1px 9px;border-radius:5px;background:#fff0f1;color:var(--red);font-weight:600;}
+  .permit-tag.blue{background:#eef3ff;color:var(--blue);}
+  .permit-tag.green{background:#eafaf3;color:var(--green);}
+  .permit-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px 16px;}
+  /* 卡点汇总 */
+  .blockage{border:1px solid var(--red);background:#fff5f6;border-left:5px solid var(--red);border-radius:10px;padding:14px 18px;margin-bottom:18px;box-shadow:0 1px 3px rgba(182,0,24,.08);}
+  .blockage h3{margin:0 0 10px;font-size:14px;color:var(--red);border-left:4px solid var(--red);padding-left:8px;}
+  .blockage .bk-item{display:flex;gap:8px;padding:6px 0;border-bottom:1px dashed #f1c9cd;font-size:13px;}
+  .blockage .bk-item:last-child{border-bottom:none;}
+  .blockage .bk-idx{background:var(--red);color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none;}
+  .blockage .bk-name{font-weight:700;color:var(--navy);}
+  .blockage .bk-note{color:#6b7280;}
+  .blockage.empty{background:#f3faf6;border-color:var(--green);border-left-color:var(--green);}
+  .blockage.empty h3{color:var(--green);border-left-color:var(--green);}
+  /* 分期进度面积输入 */
+  .p-fields{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0;}
+  .p-fields label{display:flex;flex-direction:column;font-size:12px;color:#6b7280;gap:3px;flex:1;min-width:130px;}
+  .p-fields .ph-area{border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:13px;font-family:inherit;color:var(--ink);background:#fafbfc;}
+  .p-fields .ph-area:focus{outline:none;border-color:var(--blue);background:#fff;}
+  .p-pct{font-size:12px;color:#6b7280;margin-top:2px;}
+  .p-pct-num{font-weight:700;color:var(--navy);font-size:14px;margin-right:6px;}
+  footer{text-align:center;color:#9aa3b2;font-size:12px;padding:24px;}
+  @media print{
+    header .toolbar,nav.tabs,.add-btn,.del,.hint{display:none!important;}
+    body{background:#fff;}
+    .node,.card,.block,.prog-wrap{box-shadow:none;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>飞西城市更新单元 · 报批工作台<small>计划调整 → 预售许可 全周期跟踪</small></h1>
+  <div class="toolbar">
+    <span id="saveStamp">尚未保存</span>
+    <button class="btn ghost" onclick="toggleCloud()">☁ 云端设置</button>
+    <button class="btn ghost" onclick="saveAsFile()">保存为文件</button>
+    <button class="btn ghost" onclick="exportBackup()">导出备份</button>
+    <button class="btn ghost" onclick="window.print()">打印</button>
+  </div>
+</header>
+
+<div class="cloud-panel" id="cloudPanel">
+  <h4>云端同步设置（数据自动回写 GitHub 仓库，换设备打开即最新）</h4>
+  <div class="cloud-grid">
+    <label>GitHub Token（个人访问令牌，仅存本机浏览器）
+      <input class="cloud-input" id="cfgToken" type="password" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+    </label>
+    <label>仓库 owner/repo
+      <input class="cloud-input" id="cfgRepo" type="text" placeholder="yourname/feixi-workbench">
+    </label>
+    <label>数据文件路径
+      <input class="cloud-input" id="cfgPath" type="text" value="data.json">
+    </label>
+    <label>启用自动同步
+      <select class="cloud-input" id="cfgEnabled">
+        <option value="no">否</option>
+        <option value="yes">是</option>
+      </select>
+    </label>
+  </div>
+  <div class="cloud-actions">
+    <button class="btn tiny" onclick="saveCfg()">保存设置</button>
+    <button class="btn tiny" onclick="testConn()">连接测试</button>
+    <button class="btn tiny" onclick="syncToCloud()">立即上传</button>
+    <button class="btn tiny" onclick="syncFromCloud()">拉取云端</button>
+    <span class="cloud-status" id="cloudStatus"></span>
+  </div>
+  <div class="cloud-note">
+    原理：你填写的数据实时存本机浏览器，启用后<b>同时自动回写</b>到上面仓库的 <code>data.json</code>（通过 GitHub API）。换电脑/清缓存后，打开页面点「拉取云端」即恢复最新版。<br>
+    ⚠️ 安全要点：① 仓库建议设为 <b>Private</b>；② Token 只给 <code>repo</code> 权限、可设过期；③ GitHub Pages 请发布 <code>gh-pages</code> 分支（只放本 HTML），<b>数据文件 data.json 留在 main 分支不发布</b>，避免公开泄露；④ Token 仅存你本机浏览器，不写进 HTML 源码。
+  </div>
+</div>
+
+<nav class="tabs">
+  <button id="tab-board" class="active" onclick="switchTab('board')">报批看板</button>
+  <button id="tab-flow" onclick="switchTab('flow')">报建流程节点</button>
+  <button id="tab-permit" onclick="switchTab('permit')">前置许可</button>
+</nav>
+
+<!-- ===================== 报批看板 ===================== -->
+<section class="page" id="page-board">
+  <div class="hint">本页所有<b>数字、状态、日期、备注均可直接点击修改</b>（双击或点中选区即可编辑），修改后<b>自动保存到本机浏览器</b>，下次打开自动恢复。点「＋添加指标」可扩展看板。「导出 / 打印」可生成 PDF 或纸质稿。</div>
+
+  <div class="section-title">核心指标（KPI）</div>
+  <div class="kpi-row" id="kpiRow">
+    <div class="card kpi"><div class="kpi-label">总拆除用地(㎡)</div><div class="kpi-num ed" contenteditable data-key="kpi_area_total">302,662.6</div></div>
+    <div class="card kpi"><div class="kpi-label">开发建设用地(㎡)</div><div class="kpi-num ed" contenteditable data-key="kpi_area_dev">173,518.9</div></div>
+    <div class="card kpi"><div class="kpi-label">计容建筑面积(㎡)</div><div class="kpi-num ed" contenteditable data-key="kpi_area_cap">1,000,130</div></div>
+    <div class="card kpi"><div class="kpi-label">容积率</div><div class="kpi-num ed" contenteditable data-key="kpi_far">5.76</div></div>
+    <div class="card kpi"><div class="kpi-label">总栋数(栋)</div><div class="kpi-num ed" contenteditable data-key="kpi_bld_total">438</div></div>
+    <div class="card kpi"><div class="kpi-label">已拆栋数(栋)</div><div class="kpi-num red ed" contenteditable data-key="kpi_bld_demo">34</div></div>
+    <div class="card kpi"><div class="kpi-label">已签约栋数(栋)</div><div class="kpi-num gold ed" contenteditable data-key="kpi_bld_sign">202</div></div>
+  </div>
+  <button class="add-btn" onclick="addKpi()">＋ 添加指标</button>
+
+  <div class="grid-2">
+    <!-- 红线监测 -->
+    <div class="block">
+      <h3>红线 / 关键比例监测</h3>
+      <div class="metric"><span class="m-label">意愿征集双75红线<span class="redline">人数75% & 面积75%</span></span><span class="m-val ed" contenteditable data-key="rl_will">待填：人数__% / 面积__%</span></div>
+      <div class="metric"><span class="m-label">非农指标合法用地比例<span class="redline">≥50% 红线</span></span><span class="m-val gold ed" contenteditable data-key="rl_nongfei">53.6%（权属清晰85,683.4㎡）</span></div>
+      <div class="metric"><span class="m-label">拆迁进度（已拆栋 / 总栋）</span><span class="m-val red ed" contenteditable data-key="rl_demo">34 / 438（7.8%）</span></div>
+      <div class="metric"><span class="m-label">签约进度（已签栋 / 总栋）</span><span class="m-val ed" contenteditable data-key="rl_sign">202 / 438（46.1%）</span></div>
+      <div style="margin-top:10px;font-size:12px;color:#6b7280;">拆迁率进度</div>
+      <div class="bar red"><i style="width:7.8%"></i></div>
+    </div>
+
+    <!-- 资金节点 -->
+    <div class="block">
+      <h3>保交楼资金解锁节点</h3>
+      <div class="metric"><span class="m-label">节点一（实施主体确认 + 出让合同）</span><span class="m-val ed" contenteditable data-key="fund_n1">待启动</span></div>
+      <div class="metric"><span class="m-label">→ 付保交楼欠付1亿 + 拆迁欠款≤6000万 + 银团1500万</span><span class="m-val gold ed" contenteditable data-key="fund_n1_amt">1.75亿</span></div>
+      <div class="metric"><span class="m-label">节点二（新二期首次预售许可后1月）</span><span class="m-val ed" contenteditable data-key="fund_n2">待启动</span></div>
+      <div class="metric"><span class="m-label">→ 再付保交楼欠付1亿 + 银团1500万</span><span class="m-val gold ed" contenteditable data-key="fund_n2_amt">1.15亿</span></div>
+      <div style="margin-top:10px;font-size:12px;color:#6b7280;">说明：报批里程碑直接解锁资金，是现金流引擎。</div>
+    </div>
+
+    <!-- 分期进度 -->
+    <div class="block">
+      <h3>分期进度（四三二期 时序）</h3>
+      <div class="phase">
+        <div class="p-head"><span>新二期（原四期 02-10）· 优先</span><span class="tag">拆4.65万 / 容11.66万</span></div>
+        <div class="p-fields">
+          <label>已拆面积(㎡)<input class="ed-input ph-area" data-key="ph2_demo" value="0"></label>
+          <label>拆迁总面积(㎡)<input class="ed-input ph-area" data-key="ph2_total" value="46500"></label>
+        </div>
+        <div class="p-pct"><span class="p-pct-num" id="ph2_pct">0%</span><span class="p-sub">拆迁面积率（填数自动算）</span></div>
+        <div class="bar"><i id="ph2_fill" style="width:0%"></i></div>
+      </div>
+      <div class="phase">
+        <div class="p-head"><span>新三期（原三期 02-07）</span><span class="tag">拆4.51万 / 容15.77万</span></div>
+        <div class="p-fields">
+          <label>已拆面积(㎡)<input class="ed-input ph-area" data-key="ph3_demo" value="0"></label>
+          <label>拆迁总面积(㎡)<input class="ed-input ph-area" data-key="ph3_total" value="45100"></label>
+        </div>
+        <div class="p-pct"><span class="p-pct-num" id="ph3_pct">0%</span><span class="p-sub">拆迁面积率（填数自动算）</span></div>
+        <div class="bar"><i id="ph3_fill" style="width:0%"></i></div>
+      </div>
+      <div class="phase">
+        <div class="p-head"><span>新四期（原二期 02-01+02-02）</span><span class="tag">拆6.82万 / 容33.08万</span></div>
+        <div class="p-fields">
+          <label>已拆面积(㎡)<input class="ed-input ph-area" data-key="ph4_demo" value="0"></label>
+          <label>拆迁总面积(㎡)<input class="ed-input ph-area" data-key="ph4_total" value="68200"></label>
+        </div>
+        <div class="p-pct"><span class="p-pct-num" id="ph4_pct">0%</span><span class="p-sub">拆迁面积率（填数自动算）</span></div>
+        <div class="bar"><i id="ph4_fill" style="width:0%"></i></div>
+      </div>
+    </div>
+
+    <!-- 工程约束许可 -->
+    <div class="block">
+      <h3>关键工程约束许可（长周期前置）</h3>
+      <div class="metric"><span class="m-label">城市蓝线调整（16,815.6㎡）</span><span class="m-val ed" contenteditable data-key="con_blue">待启动</span></div>
+      <div class="metric"><span class="m-label">轨道安全保护区书面同意（48,420.2㎡ / 16号线）</span><span class="m-val red ed" contenteditable data-key="con_rail">待启动（长周期）</span></div>
+      <div class="metric"><span class="m-label">历史建筑（钟氏祠堂/王氏宗祠/曾氏祖屋2座，2,203.4㎡）</span><span class="m-val ed" contenteditable data-key="con_hist">待启动</span></div>
+      <div class="metric"><span class="m-label">古树（后备1 + 老树5 + 大树28）</span><span class="m-val ed" contenteditable data-key="con_tree">待启动</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 报建流程节点 ===================== -->
+<section class="page hidden" id="page-flow">
+  <div class="hint">从<b>计划调整</b>到<b>取得预售许可</b>的全报批报建节点。每个节点可改<b>责任单位 / 目标时间 / 前置条件 / 状态 / 备注</b>，状态自动着色（灰=未启动 蓝=进行中 绿=已完成 红=受阻），顶部进度条实时计算。点「＋添加节点」可插入新节点。</div>
+
+  <div class="prog-wrap">
+    <div class="prog-top">
+      <span class="pt-title">整体报批进度</span>
+      <span class="pt-text" id="progText">已完成 0 / 0 节点（0%）</span>
+    </div>
+    <div class="prog-bar"><i id="progFill" style="width:0%"></i></div>
+  </div>
+
+  <div class="blockage" id="blockageSummary"></div>
+  <div id="nodeList">
+    <!-- 节点1 -->
+    <div class="node s-进行中">
+      <div class="node-head"><span class="node-idx">1</span><span class="node-name ed" contenteditable data-key="node_1_name">单元计划调整申报（重新做）</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_1_owner" value="区更新整备局"></label>
+        <label>目标时间<input class="ed-input" data-key="node_1_date" value="待排（前置最前）"></label>
+        <label>前置条件<input class="ed-input" data-key="node_1_pre" value="无（当前最前置关键路径）"></label>
+        <label>状态<select class="status-sel s-进行中" data-key="node_1_status"><option>未启动</option><option selected>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_1_note">需重新做，插入主体变更与实施主体确认之前，消耗前置时间。原 07-31 实施主体确认目标因此后移。</div>
+      </div>
+    </div>
+    <!-- 节点2 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">2</span><span class="node-name ed" contenteditable data-key="node_2_name">计划申报主体变更（鸿腾→梁筑）</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_2_owner" value="区更新整备局"></label>
+        <label>目标时间<input class="ed-input" data-key="node_2_date" value="待排"></label>
+        <label>前置条件<input class="ed-input" data-key="node_2_pre" value="计划调整获批"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_2_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_2_note">去HD化核心一步；流程含材料准备→申请→初审→联合会审→区业务会→区领导审批(金良富副区长)→公示。</div>
+      </div>
+    </div>
+    <!-- 节点3 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">3</span><span class="node-name ed" contenteditable data-key="node_3_name">实施主体确认</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_3_owner" value="区更新整备局"></label>
+        <label>目标时间<input class="ed-input" data-key="node_3_date" value="原2026.07.31（已后移）"></label>
+        <label>前置条件<input class="ed-input" data-key="node_3_pre" value="主体变更完成"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_3_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_3_note">全线后续节点（监管协议→…→不动产权证）均挂在其后。</div>
+      </div>
+    </div>
+    <!-- 节点4 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">4</span><span class="node-name ed" contenteditable data-key="node_4_name">监管协议签订</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_4_owner" value="项目公司 + 区更新局"></label>
+        <label>目标时间<input class="ed-input" data-key="node_4_date" value=""></label>
+        <label>前置条件<input class="ed-input" data-key="node_4_pre" value="实施主体确认"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_4_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_4_note">多方监管替代现金保函（区政府支持第6点）在此落地。</div>
+      </div>
+    </div>
+    <!-- 节点5 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">5</span><span class="node-name ed" contenteditable data-key="node_5_name">建筑物拆除及产权注销</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_5_owner" value="项目公司 + 不动产登记中心"></label>
+        <label>目标时间<input class="ed-input" data-key="node_5_date" value=""></label>
+        <label>前置条件<input class="ed-input" data-key="node_5_pre" value="监管协议"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_5_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_5_note">优先新二期（原四期）范围先拆先动。</div>
+      </div>
+    </div>
+    <!-- 节点6 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">6</span><span class="node-name ed" contenteditable data-key="node_6_name">建设用地规划许可证</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_6_owner" value="规资局"></label>
+        <label>目标时间<input class="ed-input" data-key="node_6_date" value=""></label>
+        <label>前置条件<input class="ed-input" data-key="node_6_pre" value="拆除注销完成"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_6_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_6_note"></div>
+      </div>
+    </div>
+    <!-- 节点7 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">7</span><span class="node-name ed" contenteditable data-key="node_7_name">地价评估</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_7_owner" value="评估机构"></label>
+        <label>目标时间<input class="ed-input" data-key="node_7_date" value=""></label>
+        <label>前置条件<input class="ed-input" data-key="node_7_pre" value="用地规划许可"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_7_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_7_note"></div>
+      </div>
+    </div>
+    <!-- 节点8 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">8</span><span class="node-name ed" contenteditable data-key="node_8_name">土地出让方案批复</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_8_owner" value="区政府"></label>
+        <label>目标时间<input class="ed-input" data-key="node_8_date" value=""></label>
+        <label>前置条件<input class="ed-input" data-key="node_8_pre" value="地价评估完成"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_8_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_8_note"></div>
+      </div>
+    </div>
+    <!-- 节点9 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">9</span><span class="node-name ed" contenteditable data-key="node_9_name">土地使用权出让合同</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_9_owner" value="区更新局 / 项目公司"></label>
+        <label>目标时间<input class="ed-input" data-key="node_9_date" value=""></label>
+        <label>前置条件<input class="ed-input" data-key="node_9_pre" value="出让方案批复"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_9_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_9_note">与节点一资金解锁绑定。</div>
+      </div>
+    </div>
+    <!-- 节点10 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">10</span><span class="node-name ed" contenteditable data-key="node_10_name">完税（契税 3-5%）</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_10_owner" value="税务部门"></label>
+        <label>目标时间<input class="ed-input" data-key="node_10_date" value=""></label>
+        <label>前置条件<input class="ed-input" data-key="node_10_pre" value="出让合同"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_10_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_10_note"></div>
+      </div>
+    </div>
+    <!-- 节点11 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">11</span><span class="node-name ed" contenteditable data-key="node_11_name">不动产权证（土地）</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_11_owner" value="不动产登记中心"></label>
+        <label>目标时间<input class="ed-input" data-key="node_11_date" value="原2026.10（已后移）"></label>
+        <label>前置条件<input class="ed-input" data-key="node_11_pre" value="完税完成"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_11_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_11_note">土地证是后续工程规划/施工/预售的总前提。</div>
+      </div>
+    </div>
+    <!-- 节点12 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">12</span><span class="node-name ed" contenteditable data-key="node_12_name">建设工程规划许可证</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_12_owner" value="规资局"></label>
+        <label>目标时间<input class="ed-input" data-key="node_12_date" value=""></label>
+        <label>前置条件<input class="ed-input" data-key="node_12_pre" value="土地证 + 方案设计"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_12_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_12_note"></div>
+      </div>
+    </div>
+    <!-- 节点13 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">13</span><span class="node-name ed" contenteditable data-key="node_13_name">建筑工程施工许可证</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_13_owner" value="住建局"></label>
+        <label>目标时间<input class="ed-input" data-key="node_13_date" value=""></label>
+        <label>前置条件<input class="ed-input" data-key="node_13_pre" value="工程规划许可"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_13_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_13_note"></div>
+      </div>
+    </div>
+    <!-- 节点14 -->
+    <div class="node s-未启动">
+      <div class="node-head"><span class="node-idx">14</span><span class="node-name ed" contenteditable data-key="node_14_name">商品房预售许可证</span><button class="del" onclick="delNode(this)">✕</button></div>
+      <div class="node-body">
+        <label>责任单位<input class="ed-input" data-key="node_14_owner" value="住建局 / 房管"></label>
+        <label>目标时间<input class="ed-input" data-key="node_14_date" value=""></label>
+        <label>前置条件<input class="ed-input" data-key="node_14_pre" value="施工许可 + 投入开发资金≥25%"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="node_14_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="node_14_note">全流程终点（新二期首次预售许可触发保交楼节点二）。</div>
+      </div>
+    </div>
+  </div>
+  <button class="add-btn" onclick="addNode()">＋ 添加节点</button>
+</section>
+
+<!-- ===================== 前置许可 ===================== -->
+<section class="page hidden" id="page-permit">
+  <div class="hint">四条<b>长周期外部意见</b>单独盯防——这些往往比主线节点更慢、更容易卡报批。每项可改<b>责任单位 / 预计时长 / 状态 / 备注</b>，状态自动着色（灰=未启动 蓝=进行中 绿=已完成 红=受阻）。点「＋ 添加许可项」可补充。</div>
+
+  <div id="permitList">
+    <div class="permit s-未启动">
+      <div class="permit-head"><span class="permit-name">轨道安全保护区书面同意（48,420.2㎡ / 16号线）</span><span class="permit-tag red">头号长周期</span></div>
+      <div class="permit-body">
+        <label>责任单位<input class="ed-input" data-key="permit_rail_owner" value="轨道集团（深圳）"></label>
+        <label>预计时长<input class="ed-input" data-key="permit_rail_dur" value="数月"></label>
+        <label>状态<select class="status-sel s-未启动" data-key="permit_rail_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="permit_rail_note">最慢外部意见，须轨道单位书面同意；建议现在并联启动，不等实施主体确认。</div>
+      </div>
+    </div>
+    <div class="permit s-未启动">
+      <div class="permit-head"><span class="permit-name">城市蓝线调整（16,815.6㎡）</span></div>
+      <div class="permit-body">
+        <label>责任单位<input class="ed-input" data-key="permit_blue_owner" value="水务 / 规资部门"></label>
+        <label>预计时长<input class="ed-input" data-key="permit_blue_dur" value=""></label>
+        <label>状态<select class="status-sel s-未启动" data-key="permit_blue_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="permit_blue_note">蓝线调整需与规划修改同步推进。</div>
+      </div>
+    </div>
+    <div class="permit s-未启动">
+      <div class="permit-head"><span class="permit-name">历史建筑保护（钟氏祠堂 / 王氏宗祠 / 曾氏祖屋2座，2,203.4㎡）</span></div>
+      <div class="permit-body">
+        <label>责任单位<input class="ed-input" data-key="permit_hist_owner" value="文物 / 住建部门"></label>
+        <label>预计时长<input class="ed-input" data-key="permit_hist_dur" value=""></label>
+        <label>状态<select class="status-sel s-未启动" data-key="permit_hist_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="permit_hist_note">需保护方案评估，迁改或原址保留需明确。</div>
+      </div>
+    </div>
+    <div class="permit s-未启动">
+      <div class="permit-head"><span class="permit-name">古树名木（后备1 + 老树5 + 大树28）</span></div>
+      <div class="permit-body">
+        <label>责任单位<input class="ed-input" data-key="permit_tree_owner" value="城管 / 绿化部门"></label>
+        <label>预计时长<input class="ed-input" data-key="permit_tree_dur" value=""></label>
+        <label>状态<select class="status-sel s-未启动" data-key="permit_tree_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>
+        <div class="node-note ed" contenteditable data-key="permit_tree_note">古树保护方案，避让或移植审批。</div>
+      </div>
+    </div>
+  </div>
+  <button class="add-btn" onclick="addPermit()">＋ 添加许可项</button>
+</section>
+
+<footer>飞西城市更新单元 · 报批工作台 ｜ 填的数据实时存本机浏览器；启用「☁ 云端设置」后自动回写 GitHub 仓库，换设备打开即最新。建议定期「导出 / 打印」留档。</footer>
+
+<script>
+  const KEY = 'feixi_approval_workbench_v1';
+  function switchTab(t){
+    document.getElementById('page-board').classList.toggle('hidden', t!=='board');
+    document.getElementById('page-flow').classList.toggle('hidden', t!=='flow');
+    document.getElementById('page-permit').classList.toggle('hidden', t!=='permit');
+    document.getElementById('tab-board').classList.toggle('active', t==='board');
+    document.getElementById('tab-flow').classList.toggle('active', t==='flow');
+    document.getElementById('tab-permit').classList.toggle('active', t==='permit');
+  }
+  function stamp(){
+    const d=new Date();
+    const p=n=>String(n).padStart(2,'0');
+    document.getElementById('saveStamp').textContent='已自动保存 '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  }
+  function saveAll(){
+    const data={};
+    document.querySelectorAll('[data-key]').forEach(el=>{
+      if(el.tagName==='SELECT') data[el.dataset.key]=el.value;
+      else if(el.tagName==='INPUT') data[el.dataset.key]=el.value;
+      else data[el.dataset.key]=el.innerHTML;
+    });
+    localStorage.setItem(KEY, JSON.stringify(data));
+    stamp();
+    scheduleSync();
+    return data;
+  }
+  function loadAll(){
+    let data={};
+    try{ data=JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ data={}; }
+    Object.entries(data).forEach(([k,v])=>{
+      const el=document.querySelector('[data-key="'+CSS.escape(k)+'"]');
+      if(!el) return;
+      if(el.tagName==='SELECT'){ el.value=v; paintStatus(el); }
+      else if(el.tagName==='INPUT') el.value=v;
+      else el.innerHTML=v;
+    });
+    updateProgress();
+    computePhaseBars();
+    if(Object.keys(data).length) stamp();
+  }
+  function paintStatus(sel){
+    sel.className='status-sel s-'+sel.value;
+    const box=sel.closest('.node')||sel.closest('.permit');
+    if(box){ box.className=(box.classList.contains('node')?'node ':'permit ')+'s-'+sel.value; }
+  }
+  function updateProgress(){
+    const sels=[...document.querySelectorAll('.status-sel')];
+    const done=sels.filter(s=>s.value==='已完成').length;
+    const total=sels.length;
+    const pct= total? Math.round(done/total*100):0;
+    document.getElementById('progFill').style.width=pct+'%';
+    document.getElementById('progText').textContent='已完成 '+done+' / '+total+' 节点（'+pct+'%）';
+    sels.forEach(paintStatus);
+    renderBlockage();
+  }
+  function delNode(btn){
+    btn.closest('.node').remove();
+    renumber(); saveAll(); updateProgress();
+  }
+  function renumber(){
+    [...document.querySelectorAll('#nodeList .node')].forEach((n,i)=>{
+      n.querySelector('.node-idx').textContent=i+1;
+    });
+  }
+  function addNode(){
+    const list=document.getElementById('nodeList');
+    const n=list.children.length+1;
+    const div=document.createElement('div');
+    div.className='node s-未启动';
+    div.innerHTML=
+      '<div class="node-head"><span class="node-idx">'+n+'</span>'+
+      '<span class="node-name ed" contenteditable data-key="node_'+n+'_name">新节点</span>'+
+      '<button class="del" onclick="delNode(this)">✕</button></div>'+
+      '<div class="node-body">'+
+      '<label>责任单位<input class="ed-input" data-key="node_'+n+'_owner" value=""></label>'+
+      '<label>目标时间<input class="ed-input" data-key="node_'+n+'_date" value=""></label>'+
+      '<label>前置条件<input class="ed-input" data-key="node_'+n+'_pre" value=""></label>'+
+      '<label>状态<select class="status-sel s-未启动" data-key="node_'+n+'_status">'+
+      '<option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>'+
+      '<div class="node-note ed" contenteditable data-key="node_'+n+'_note">备注…</div>'+
+      '</div>';
+    list.appendChild(div);
+    saveAll(); updateProgress();
+  }
+  function addPermit(){
+    const list=document.getElementById('permitList');
+    const n=Date.now();
+    const div=document.createElement('div');
+    div.className='permit s-未启动';
+    div.innerHTML=
+      '<div class="permit-head"><span class="permit-name ed" contenteditable data-key="permit_x_'+n+'_name">新许可项</span></div>'+
+      '<div class="permit-body">'+
+      '<label>责任单位<input class="ed-input" data-key="permit_x_'+n+'_owner" value=""></label>'+
+      '<label>预计时长<input class="ed-input" data-key="permit_x_'+n+'_dur" value=""></label>'+
+      '<label>状态<select class="status-sel s-未启动" data-key="permit_x_'+n+'_status"><option selected>未启动</option><option>进行中</option><option>已完成</option><option>受阻</option></select></label>'+
+      '<div class="node-note ed" contenteditable data-key="permit_x_'+n+'_note">备注…</div>'+
+      '</div>';
+    list.appendChild(div);
+    saveAll();
+  }
+  function addKpi(){
+    const wrap=document.getElementById('kpiRow');
+    const k='kpi_x_'+Date.now();
+    const div=document.createElement('div');
+    div.className='card kpi';
+    div.innerHTML='<div class="kpi-label ed" contenteditable data-key="'+k+'_l">新指标</div>'+
+      '<div class="kpi-num ed" contenteditable data-key="'+k+'_v">0</div>';
+    wrap.appendChild(div);
+    saveAll();
+  }
+  // 分期拆迁面积率自动计算
+  function computePhaseBars(){
+    ['2','3','4'].forEach(n=>{
+      const demo=parseFloat((document.querySelector('[data-key="ph'+n+'_demo"]')||{}).value)||0;
+      const total=parseFloat((document.querySelector('[data-key="ph'+n+'_total"]')||{}).value)||0;
+      const pct= total>0? Math.min(100, Math.round(demo/total*100)) : 0;
+      const fill=document.getElementById('ph'+n+'_fill');
+      const pctEl=document.getElementById('ph'+n+'_pct');
+      if(fill) fill.style.width=pct+'%';
+      if(pctEl) pctEl.textContent=pct+'%';
+    });
+  }
+  // 卡点汇总（受阻节点）
+  function renderBlockage(){
+    const box=document.getElementById('blockageSummary');
+    if(!box) return;
+    const blocked=[...document.querySelectorAll('#nodeList .node')].filter(n=>{
+      const s=n.querySelector('.status-sel'); return s && s.value==='受阻';
+    });
+    if(!blocked.length){
+      box.className='blockage empty';
+      box.innerHTML='<h3>当前卡点（受阻节点）</h3><div style="font-size:13px;color:#1F9D6B;">✓ 暂无受阻节点，报批管线通畅。</div>';
+      return;
+    }
+    box.className='blockage';
+    let html='<h3>⚠ 当前卡点（受阻节点 · '+blocked.length+' 项）</h3>';
+    blocked.forEach((n,i)=>{
+      const name=n.querySelector('.node-name').textContent.trim();
+      const note=n.querySelector('.node-note').textContent.trim();
+      html+='<div class="bk-item"><span class="bk-idx">'+(i+1)+'</span><div><span class="bk-name">'+name+'</span>'
+        + (note? ' — <span class="bk-note">'+note+'</span>':'') + '</div></div>';
+    });
+    box.innerHTML=html;
+  }
+  // 事件委托：任意编辑即保存
+  document.addEventListener('input', e=>{ if(e.target.closest('[data-key]')){ saveAll(); if(e.target.classList.contains('ph-area')) computePhaseBars(); } });
+  document.addEventListener('change', e=>{ if(e.target.closest('[data-key]')){ if(e.target.tagName==='SELECT') paintStatus(e.target); saveAll(); updateProgress(); } });
+  // 将当前填写的数据固化进 HTML 并下载（用于覆盖源文件，使数据不依赖浏览器缓存）
+  function saveAsFile(){
+    // 1. 把 input / select 的当前值同步到 HTML 属性，否则 outerHTML 拿不到用户改后的值
+    document.querySelectorAll('[data-key]').forEach(el=>{
+      if(el.tagName==='INPUT') el.setAttribute('value', el.value);
+      else if(el.tagName==='SELECT'){
+        [...el.options].forEach(o=>o.removeAttribute('selected'));
+        if(el.selectedOptions[0]) el.selectedOptions[0].setAttribute('selected','');
+      }
+    });
+    // 2. contenteditable 的 innerHTML 已含当前填写值，outerHTML 一并带出
+    const html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='飞西报批工作台.html';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    alert('已生成含当前数据的「飞西报批工作台.html」。\n请在浏览器下载目录找到它，复制到「报批工作台」文件夹覆盖原文件即可。\n\n覆盖后：数据已写死进文件，换电脑 / 清缓存也不丢；本机浏览器自动保存仍作双保险保留。');
+  }
+  // 导出纯数据备份（JSON），便于迁移或文件丢失时恢复
+  function exportBackup(){
+    const raw=localStorage.getItem(KEY)||'{}';
+    const blob=new Blob([raw],{type:'application/json;charset=utf-8'});
+    const a=document.createElement('a');
+    const d=new Date();
+    const pad=n=>String(n).padStart(2,'0');
+    a.href=URL.createObjectURL(blob);
+    a.download='飞西报批工作台_数据备份_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'.json';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    alert('已导出数据备份 JSON 文件（仅含数据，不含页面），可用于备份或交他人导入。');
+  }
+
+  // ===== 云端同步（GitHub）=====
+  const CFG_KEY='feixi_approval_cloud_cfg';
+  let _syncTimer=null;
+  function b64encode(str){ return btoa(unescape(encodeURIComponent(str))); }
+  function b64decode(b64){ try{ return decodeURIComponent(escape(atob(b64))); }catch(e){ return ''; } }
+  function apiUrl(cfg){ return 'https://api.github.com/repos/'+cfg.owner+'/'+cfg.repo+'/contents/'+encodeURIComponent(cfg.path); }
+  function loadCfg(){ try{ return JSON.parse(localStorage.getItem(CFG_KEY)||'null'); }catch(e){ return null; } }
+  function fillCfg(){
+    const cfg=loadCfg()||{};
+    document.getElementById('cfgToken').value=cfg.token||'';
+    document.getElementById('cfgRepo').value=cfg.owner?cfg.owner+'/'+(cfg.repo||''):'';
+    document.getElementById('cfgPath').value=cfg.path||'data.json';
+    document.getElementById('cfgEnabled').value=cfg.enabled||'no';
+  }
+  function saveCfg(){
+    const repo=document.getElementById('cfgRepo').value.trim();
+    let owner='', r='';
+    if(repo.indexOf('/')>-1){ const p=repo.split('/'); owner=p[0]; r=p[1]||''; } else { owner=repo; }
+    const cfg={ token:document.getElementById('cfgToken').value.trim(), owner:owner, repo:r,
+      path:document.getElementById('cfgPath').value.trim()||'data.json', enabled:document.getElementById('cfgEnabled').value };
+    localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+    setCloudStatus('设置已保存到本机');
+  }
+  function setCloudStatus(t){ const e=document.getElementById('cloudStatus'); if(e) e.textContent=t; }
+  function toggleCloud(){ document.getElementById('cloudPanel').classList.toggle('open'); fillCfg(); }
+  function collectData(){
+    const data={};
+    document.querySelectorAll('[data-key]').forEach(el=>{
+      if(el.tagName==='SELECT') data[el.dataset.key]=el.value;
+      else if(el.tagName==='INPUT') data[el.dataset.key]=el.value;
+      else data[el.dataset.key]=el.innerHTML;
+    });
+    return data;
+  }
+  function applyData(data){
+    if(!data || !Object.keys(data).length) return;
+    Object.entries(data).forEach(([k,v])=>{
+      const el=document.querySelector('[data-key="'+CSS.escape(k)+'"]');
+      if(!el) return;
+      if(el.tagName==='SELECT'){ el.value=v; paintStatus(el); }
+      else if(el.tagName==='INPUT') el.value=v;
+      else el.innerHTML=v;
+    });
+    updateProgress();
+  }
+  function syncToCloud(data){
+    const cfg=loadCfg();
+    if(!cfg || cfg.enabled!=='yes' || !cfg.token || !cfg.owner || !cfg.repo) return;
+    if(!data) data=collectData();
+    const url=apiUrl(cfg);
+    const headers={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','Content-Type':'application/json'};
+    setCloudStatus('正在上传…');
+    fetch(url,{headers})
+      .then(r=> r.ok? r.json(): null)
+      .then(j=>{
+        const body={ message:'feixi workbench sync '+new Date().toISOString(), content:b64encode(JSON.stringify(data)) };
+        if(j && j.sha) body.sha=j.sha;
+        return fetch(url,{method:'PUT',headers,body:JSON.stringify(body)});
+      })
+      .then(r=>{ if(r.ok){ setCloudStatus('☁ 已同步到云端 '+new Date().toLocaleTimeString()); } else { r.text().then(t=>setCloudStatus('上传失败: '+r.status)); } })
+      .catch(e=> setCloudStatus('上传失败: '+e));
+  }
+  function scheduleSync(){
+    const cfg=loadCfg();
+    if(!cfg || cfg.enabled!=='yes') return;
+    clearTimeout(_syncTimer);
+    _syncTimer=setTimeout(()=>syncToCloud(), 2500);
+  }
+  function syncFromCloud(){
+    const cfg=loadCfg();
+    if(!cfg || !cfg.token || !cfg.owner || !cfg.repo){ setCloudStatus('未配置云端'); return; }
+    const url=apiUrl(cfg);
+    const headers={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'};
+    setCloudStatus('正在拉取…');
+    fetch(url,{headers})
+      .then(r=>{ if(!r.ok) throw new Error('读取失败 '+r.status); return r.json(); })
+      .then(j=>{ const data=JSON.parse(b64decode(j.content)); localStorage.setItem(KEY,JSON.stringify(data)); applyData(data); stamp(); setCloudStatus('☁ 已从云端恢复 '+new Date().toLocaleTimeString()); })
+      .catch(e=> setCloudStatus('拉取失败: '+e.message));
+  }
+  function testConn(){
+    const cfg=loadCfg();
+    if(!cfg || !cfg.token || !cfg.owner || !cfg.repo){ setCloudStatus('请先填写并保存设置'); return; }
+    const url=apiUrl(cfg);
+    const headers={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'};
+    setCloudStatus('测试连接…');
+    fetch(url,{headers})
+      .then(r=>{ if(r.ok) setCloudStatus('✓ 连接正常（data.json 已存在）');
+        else if(r.status===404) setCloudStatus('✓ 连接正常（data.json 尚不存在，首次保存将创建）');
+        else setCloudStatus('✗ 失败: '+r.status); })
+      .catch(e=> setCloudStatus('✗ 异常: '+e.message));
+  }
+  window.addEventListener('DOMContentLoaded', ()=>{
+    loadAll();
+    const cfg=loadCfg();
+    if(cfg && cfg.enabled==='yes' && cfg.token && cfg.owner && cfg.repo){ syncFromCloud(); }
+  });
+</script>
+</body>
+</html>
