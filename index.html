@@ -493,7 +493,6 @@
     <div class="prog-bar"><i id="progFill" style="width:0%"></i></div>
   </div>
 
-  <div class="blockage" id="blockageSummary"></div>
   <div id="nodeList">
   <!-- 流程节点：前置闸口 + 新二期独立快线 + 子节点 -->
   <div class="flow-banner">【新二期（原四期）独立快线 · 优先】以上流程为新二期优先推进路径：新二期可在本管线独立跑到预售回血，不受新三期（原三期）、新四期（原二期）拖累；后两期复用同流程但滞后推进。前置闸口（单元计划调整）未完成前，后续 13 个节点全部锁定。</div>
@@ -669,7 +668,6 @@
     sels.forEach(paintStatus);
     applyWarnings();
     applyGate();
-    renderBlockage();
   }
   function delNode(btn){
     btn.closest('.node').remove();
@@ -740,42 +738,6 @@
     });
   }
   // 卡点汇总（受阻节点 + 外部长周期依赖，外部置顶红）
-  function renderBlockage(){
-    const box=document.getElementById('blockageSummary');
-    if(!box) return;
-    const gate=document.querySelector('[data-key="node_1_status"]');
-    const gateOpen = gate && gate.value==='已完成';
-    const blocked=[...document.querySelectorAll('#nodeList .node')].filter(n=>{
-      const s=n.querySelector('.status-sel'); return s && s.value==='受阻';
-    });
-    const ext=[...document.querySelectorAll('#permitList .permit')].filter(p=>{
-      const s=p.querySelector('.status-sel'); const dep=p.querySelector('[data-key$="_dep"]');
-      return dep && dep.value==='外部依赖' && s && s.value!=='已完成';
-    });
-    if(gateOpen && !blocked.length && !ext.length){
-      box.className='blockage empty';
-      box.innerHTML='<h3>当前卡点 / 外部协调</h3><div style="font-size:13px;color:#1F9D6B;">✓ 无受阻节点、无外部协调待办，报批管线通畅。</div>';
-      return;
-    }
-    box.className='blockage';
-    let html='<h3>⚠ 当前卡点 / 外部协调（'+(ext.length+blocked.length)+(gateOpen?'':' + 闸口')+' 项）</h3>';
-    if(!gateOpen){
-      html+='<div class="bk-item ext"><span class="bk-idx">闸</span><div><span class="bk-name">前置闸口未解锁：单元计划调整（申报）</span> <span class="bk-tag">最前置关键路径</span> — <span class="bk-note">未完成则后续 13 个节点全部锁定</span></div></div>';
-    }
-    ext.forEach(p=>{
-      const name=p.querySelector('.permit-name').textContent.trim();
-      const note=p.querySelector('.node-note').textContent.trim();
-      html+='<div class="bk-item ext"><span class="bk-idx">外</span><div><span class="bk-name">'+name+'</span> <span class="bk-tag">需外部协调</span>'
-        + (note? ' — <span class="bk-note">'+note+'</span>':'') + '</div></div>';
-    });
-    blocked.forEach((n,i)=>{
-      const name=n.querySelector('.node-name').textContent.trim();
-      const note=n.querySelector('.node-note').textContent.trim();
-      html+='<div class="bk-item"><span class="bk-idx">×</span><div><span class="bk-name">'+name+'</span>'
-        + (note? ' — <span class="bk-note">'+note+'</span>':'') + '</div></div>';
-    });
-    box.innerHTML=html;
-  }
   // ===== 红黄绿灯自动化（预计完成日期 → 逾期/临期/正常）=====
   function escHTML(t){ return (String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')); }
   function escAttr(t){ return escHTML(t).replace(/"/g,'&quot;'); }
