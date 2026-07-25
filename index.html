@@ -147,8 +147,15 @@
 
   /* 子节点 / 预警 / 闸口 / 外部协调 */
   .flow-banner{background:#eef3ff;border:1px solid #c9d8f5;border-left:5px solid var(--blue);border-radius:10px;padding:11px 16px;margin-bottom:14px;font-size:13px;color:#27406b;line-height:1.6;}
-  .subnodes{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:8px;}
-  .subnode{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 10px;}
+  .subnodes{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:0;}
+  .subnode{position:relative;display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 10px;}
+  /* 子节点间向下箭头（与主流程呼应，更小一号） */
+  .subnode:not(:last-child){margin-bottom:20px;}
+  .subnode:not(:last-child)::after{content:'';position:absolute;left:50%;transform:translateX(-50%);
+    bottom:-14px;width:2px;height:12px;background:var(--navy);}
+  .subnode:not(:last-child)::before{content:'';position:absolute;left:50%;transform:translateX(-50%);
+    bottom:-20px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
+    border-top:8px solid var(--gold);}
   .sub-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);flex:none;margin-top:4px;}
   .sub-name{min-width:180px;max-width:300px;font-size:13px;font-weight:600;color:var(--navy);white-space:pre-wrap;word-break:break-word;line-height:1.5;}
   .sub-note{width:100%;flex-basis:100%;min-height:34px;margin-top:2px;resize:vertical;font:inherit;font-size:12px;color:#374151;border:1px solid var(--line);border-radius:6px;padding:5px 7px;background:#fff;line-height:1.5;box-sizing:border-box;}
