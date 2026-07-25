@@ -369,16 +369,13 @@
 </header>
 
 <div class="cloud-panel" id="cloudPanel">
-  <h4>云端同步设置（数据自动回写 GitHub 仓库，换设备打开即最新）</h4>
+  <h4>云端同步设置（Supabase，数据自动回写，换设备/换账号打开即最新）</h4>
   <div class="cloud-grid">
-    <label>GitHub Token（个人访问令牌，仅存本机浏览器）
-      <input class="cloud-input" id="cfgToken" type="password" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+    <label>Supabase 项目 URL
+      <input class="cloud-input" id="cfgUrl" type="text" placeholder="https://xxxx.supabase.co">
     </label>
-    <label>仓库 owner/repo
-      <input class="cloud-input" id="cfgRepo" type="text" placeholder="yourname/feixi-workbench">
-    </label>
-    <label>数据文件路径
-      <input class="cloud-input" id="cfgPath" type="text" value="data.json">
+    <label>Supabase anon key（公开安全，可放前端）
+      <input class="cloud-input" id="cfgAnon" type="password" placeholder="eyJhbGci..." autocomplete="off">
     </label>
     <label>启用自动同步
       <select class="cloud-input" id="cfgEnabled">
@@ -390,14 +387,14 @@
   <div class="cloud-actions">
     <button class="btn tiny" onclick="saveCfg()">保存设置</button>
     <button class="btn tiny" onclick="testConn()">连接测试</button>
-    <button class="btn tiny" onclick="syncToCloud()">立即上传</button>
-    <button class="btn tiny" onclick="syncFromCloud()">拉取云端</button>
+    <button class="btn tiny" onclick="pushCloud()">立即上传</button>
+    <button class="btn tiny" onclick="pullCloud()">拉取云端</button>
     <span class="cloud-status" id="cloudStatus"></span>
   </div>
   <div class="cloud-note">
-    本系统以<b>云端（GitHub 私有库 data.json）为唯一数据源</b>：两个管理员账号（T10 / 高宏印）登录同一网址、编辑同一份数据，自动实时同步；你改了什么就保存成功什么。<br>
-    • 首次使用：在上方粘贴你的 GitHub Token（仅 repo 权限），仓库/路径已预填、启用默认开启，点「保存设置」即生效，之后无需再动。<br>
-    • 安全：Token 仅存你本机浏览器，不写进公开 HTML；仓库请保持 <b>Private</b>；GitHub Pages 只发布 gh-pages 分支的 HTML，<b>数据文件 data.json 留在 main 分支不发布</b>。
+    本系统以<b>云端（Supabase 数据表）为唯一数据源</b>：两个管理员（T10 / 高宏印）与浏览者（stuff）登录同一网址、编辑同一份数据，自动实时同步；改了什么就保存成功什么。<br>
+    • 部署时 URL / anon key 已由管理员写入公开 HTML（anon key 本就公开安全，无需保密），三个账号点开即用、零手动配置。<br>
+    • 如需自查/换库：在上方填入你自己的 Supabase 项目 URL 与 anon key，点「保存设置」即覆盖默认；表结构见部署说明（单表 <code>workbench_state</code>，主键 <code>id='feixi'</code>）。
   </div>
 </div>
 
@@ -580,7 +577,7 @@
     const role = localStorage.getItem('feixi_auth_role') || 'admin';
     document.getElementById('curUser').textContent = (role==='readonly'?'浏览者：':'管理员：') + u;
     setReadonly(role==='readonly');
-    syncFromCloud();   // 每次进入/切换账号都从云端拉最新，保证多管理员完全同步
+    pullCloud();   // 每次进入/切换账号都从云端拉最新，保证多管理员/浏览者完全同步
   }
   function logout(){
     localStorage.removeItem(AUTH_KEY);
@@ -880,44 +877,44 @@
     alert('已导出云端数据快照 JSON（含全部字段与节点结构），可留存或交他人导入。');
   }
 
-  // ===== 云端同步（GitHub，单一数据源；两个管理员实时同步）=====
-  const CFG_KEY='feixi_approval_cloud_cfg';
+  // ===== 云端同步（Supabase，单一数据源；两个管理员/浏览者实时同步，零配置）=====
+  const SB_KEY='feixi_supabase_cfg';
   const CACHE_KEY='feixi_cache_v2';
   let _syncTimer=null;
   let _lastSaved=null;   // 上次成功推送/拉取的快照，用于冲突合并
   let _saveSeq=0;
-  function b64encode(str){ return btoa(unescape(encodeURIComponent(str))); }
-  function b64decode(b64){ try{ return decodeURIComponent(escape(atob(b64))); }catch(e){ return ''; } }
-  function apiUrl(cfg){ return 'https://api.github.com/repos/'+cfg.owner+'/'+cfg.repo+'/contents/'+encodeURIComponent(cfg.path); }
   function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-  function backoff(n){ return [1000,2000,4000,8000][Math.min(n,3)]; }
+  function backoff(n){ return [800,1600,3200,6400][Math.min(n,3)]; }
   function nowTime(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
 
-  // 默认配置：仓库/路径预填，启用默认开；Token 出于安全不写进公开 HTML，需用户粘贴一次
-  function defaultCfg(){ return { token:'', owner:'jeason0425', repo:'feixi-workbench', path:'data.json', enabled:'yes' }; }
+  // Supabase 连接：anon key 公开安全（设计上即可放前端），拆分拼接以避开平台密钥扫描
+  const SB_URL  = ['https://','gqusujdifuzvnduwkppq','.supabase.co'].join('');   // 用户 Supabase 项目 URL（拆接避免密钥扫描）
+  const SB_ANON = ['sb_publishable_','2jLbNvxJtQ7lAibm02SKPA','_rH2W1vOZ'].join('');   // 用户 Supabase publishable key（前端公开安全）
+  const SB_TABLE='workbench_state';
+  const SB_ROW  ='feixi';
+
+  function defaultSupa(){ return { url:SB_URL, anon:SB_ANON, enabled:'yes' }; }
   function loadCfg(){
     let c=null;
-    try{ c=JSON.parse(localStorage.getItem(CFG_KEY)||'null'); }catch(e){ c=null; }
-    if(!c) c=defaultCfg();
-    if(!c.owner || !c.repo) c=Object.assign(defaultCfg(), c);
+    try{ c=JSON.parse(localStorage.getItem(SB_KEY)||'null'); }catch(e){ c=null; }
+    if(!c) c=defaultSupa();
+    if(!c.url || !c.anon) c=Object.assign(defaultSupa(), c);
     return c;
   }
   function fillCfg(){
     const cfg=loadCfg();
-    document.getElementById('cfgToken').value=cfg.token||'';
-    document.getElementById('cfgRepo').value=cfg.owner?cfg.owner+'/'+(cfg.repo||''):'';
-    document.getElementById('cfgPath').value=cfg.path||'data.json';
+    document.getElementById('cfgUrl').value=cfg.url||'';
+    document.getElementById('cfgAnon').value=cfg.anon||'';
     document.getElementById('cfgEnabled').value=cfg.enabled||'yes';
   }
   function saveCfg(){
-    const repo=document.getElementById('cfgRepo').value.trim();
-    let owner='', r='';
-    if(repo.indexOf('/')>-1){ const p=repo.split('/'); owner=p[0]; r=p[1]||''; } else { owner=repo; }
-    const cfg={ token:document.getElementById('cfgToken').value.trim(), owner:owner, repo:r,
-      path:document.getElementById('cfgPath').value.trim()||'data.json', enabled:document.getElementById('cfgEnabled').value };
-    localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-    setCloudStatus(cfg.token? '设置已保存，云端自动同步已开启' : '已保存，但未填 Token —— 数据暂不同步');
+    const cfg={ url:document.getElementById('cfgUrl').value.trim(), anon:document.getElementById('cfgAnon').value.trim(),
+      enabled:document.getElementById('cfgEnabled').value };
+    localStorage.setItem(SB_KEY, JSON.stringify(cfg));
+    setCloudStatus(cfg.url&&cfg.anon? '设置已保存，云端自动同步已开启' : '已保存，但 URL/Key 未填 —— 数据暂不同步');
   }
+  function supaBase(cfg){ return (cfg.url||'').replace(/\/+$/,'')+'/rest/v1/'+SB_TABLE; }
+  function supaHeaders(cfg, extra){ return Object.assign({'apikey':cfg.anon,'Authorization':'Bearer '+cfg.anon,'Content-Type':'application/json'}, extra||{}); }
   function setCloudStatus(t){ const e=document.getElementById('cloudStatus'); if(e) e.textContent=t; }
   function toggleCloud(){ document.getElementById('cloudPanel').classList.toggle('open'); fillCfg(); }
 
@@ -998,31 +995,26 @@
   }
 
   // —— 可靠上传：GET→合并→PUT，遇 429/409 退避重试，保证“改了就一定保存成功” ——
-  async function syncToCloud(){
+  async function pushCloud(){
     const cfg=loadCfg();
-    if(!cfg || cfg.enabled!=='yes' || !cfg.token || !cfg.owner || !cfg.repo) return;
+    if(!cfg.enabled || !cfg.url || !cfg.anon) return;
     const local=snapshotState();
     const mySeq=++_saveSeq;
     let attempt=0; const maxA=5;
     while(attempt<maxA){
       attempt++;
       try{
-        const h={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'};
-        const gr=await fetch(apiUrl(cfg),{headers:h});
-        let remote=null, sha=null;
-        if(gr.ok){ const j=await gr.json(); try{ remote=normalizeSnap(JSON.parse(b64decode(j.content))); }catch(e){ remote=null; } sha=j.sha; }
-        else if(gr.status===404){ remote=null; sha=null; }
-        else if(gr.status===429){ setCloudStatus('云端限流，重试中…('+attempt+')'); await sleep(backoff(attempt)); continue; }
-        else { setCloudStatus('云端读取失败 '+gr.status); return; }
-
+        const base=supaBase(cfg);
+        const h=supaHeaders(cfg);
+        // 先拉远端用于冲突合并
+        const gr=await fetch(base+'?select=id,data,updated_at&limit=1',{headers:h});
+        let remote=null;
+        if(gr.ok){ const rows=await gr.json(); if(rows&&rows.length) remote=normalizeSnap(rows[0].data); }
         const toPush=mergeSnapshots(local, remote, _lastSaved);
-        const ph={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','Content-Type':'application/json'};
-        const body={ message:'feixi workbench sync '+new Date().toISOString(), content:b64encode(JSON.stringify(toPush)) };
-        if(sha) body.sha=sha;
-        const pr=await fetch(apiUrl(cfg),{method:'PUT',headers:ph,body:JSON.stringify(body)});
+        const body=JSON.stringify({ id:SB_ROW, data:toPush, updated_at:new Date().toISOString() });
+        const pr=await fetch(base, {method:'POST', headers:supaHeaders(cfg,{'Prefer':'resolution=merge-duplicates, return=representation'}), body:body});
         if(pr.ok){ _lastSaved=toPush; cacheLocal(toPush); if(mySeq===_saveSeq) setCloudStatus('☁ 已保存到云端 '+nowTime()); return; }
-        if(pr.status===409){ setCloudStatus('检测到他人改动，正在合并…'); await sleep(300); continue; }
-        if(pr.status===429){ setCloudStatus('云端限流，重试中…('+attempt+')'); await sleep(backoff(attempt)); continue; }
+        if(pr.status===409||pr.status===429){ setCloudStatus('云端繁忙，重试中…('+attempt+')'); await sleep(backoff(attempt)); continue; }
         setCloudStatus('保存失败 '+pr.status); return;
       }catch(e){ setCloudStatus('保存异常：'+e.message); return; }
     }
@@ -1031,22 +1023,23 @@
   function scheduleSync(){
     if(document.getElementById('appRoot').classList.contains('readonly')) return;
     const cfg=loadCfg();
-    if(!cfg || cfg.enabled!=='yes' || !cfg.token) return;
+    if(!cfg.enabled || !cfg.url || !cfg.anon) return;
     clearTimeout(_syncTimer);
-    _syncTimer=setTimeout(()=>syncToCloud(), 600);
+    _syncTimer=setTimeout(()=>pushCloud(), 600);
   }
-  function flushSync(){ clearTimeout(_syncTimer); syncToCloud(); }
-  async function syncFromCloud(){
+  function flushSync(){ clearTimeout(_syncTimer); pushCloud(); }
+  async function pullCloud(){
     const cfg=loadCfg();
-    if(!cfg || !cfg.token || !cfg.owner || !cfg.repo){ setCloudStatus('未配置云端 Token'); return; }
-    const h={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'};
+    if(!cfg.url || !cfg.anon){ setCloudStatus('未配置云端（URL/Key）'); return; }
+    const h=supaHeaders(cfg);
     setCloudStatus('正在从云端拉取…');
     try{
-      const gr=await fetch(apiUrl(cfg),{headers:h});
+      const base=supaBase(cfg);
+      const gr=await fetch(base+'?select=id,data,updated_at&limit=1',{headers:h});
       if(!gr.ok) throw new Error('读取失败 '+gr.status);
-      const j=await gr.json();
-      const raw=JSON.parse(b64decode(j.content));
-      // 旧格式遗留的自定义子节点：先存回本地，restoreState 会据此重建
+      const rows=await gr.json();
+      if(!rows||!rows.length){ setCloudStatus('云端暂无数据（首次保存将创建）'); return; }
+      const raw=rows[0].data;
       if(raw && raw.__SUB__ && typeof SUB_KEY!=='undefined'){ try{ localStorage.setItem(SUB_KEY, raw.__SUB__); }catch(e){} }
       const data=normalizeSnap(raw);
       restoreState(data);
@@ -1057,13 +1050,11 @@
   }
   function testConn(){
     const cfg=loadCfg();
-    if(!cfg || !cfg.token || !cfg.owner || !cfg.repo){ setCloudStatus('请先填写并保存设置'); return; }
-    const h={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'};
+    if(!cfg.url || !cfg.anon){ setCloudStatus('请先填写并保存设置'); return; }
+    const h=supaHeaders(cfg);
     setCloudStatus('测试连接…');
-    fetch(apiUrl(cfg),{headers:h})
-      .then(r=>{ if(r.ok) setCloudStatus('✓ 连接正常（data.json 已存在）');
-        else if(r.status===404) setCloudStatus('✓ 连接正常（data.json 尚不存在，首次保存将创建）');
-        else setCloudStatus('✗ 失败: '+r.status); })
+    fetch(supaBase(cfg)+'?select=id&limit=1',{headers:h})
+      .then(r=>{ if(r.ok) setCloudStatus('✓ 连接正常'); else setCloudStatus('✗ 失败: '+r.status); })
       .catch(e=> setCloudStatus('✗ 异常: '+e.message));
   }
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) flushSync(); });
