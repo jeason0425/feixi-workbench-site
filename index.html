@@ -580,6 +580,7 @@
     const role = localStorage.getItem('feixi_auth_role') || 'admin';
     document.getElementById('curUser').textContent = (role==='readonly'?'浏览者：':'管理员：') + u;
     setReadonly(role==='readonly');
+    syncFromCloud();   // 每次进入/切换账号都从云端拉最新，保证多管理员完全同步
   }
   function logout(){
     localStorage.removeItem(AUTH_KEY);
@@ -1068,10 +1069,7 @@
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) flushSync(); });
   window.addEventListener('DOMContentLoaded', ()=>{
     loadAll();   // 先用本机缓存秒开
-    const cfg=loadCfg();
-    if(cfg && cfg.enabled==='yes' && cfg.token && cfg.owner && cfg.repo){ syncFromCloud(); }   // 云端为唯一真源，登录即拉最新
-    else if(cfg && cfg.enabled==='yes' && !cfg.token){ setCloudStatus('⚠ 已启用云端但未填 Token，数据暂不写云端 —— 点「☁ 云端设置」粘贴 Token'); }
-    if(localStorage.getItem(AUTH_KEY)){ showApp(); }
+    if(localStorage.getItem(AUTH_KEY)){ showApp(); }   // showApp 内自动从云端拉最新（两管理员/浏览者同步）
     else {
       document.getElementById('loginScreen').style.display='flex';
       document.getElementById('appRoot').classList.remove('show');
