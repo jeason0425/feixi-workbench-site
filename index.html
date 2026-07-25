@@ -388,8 +388,9 @@
     <span class="cloud-status" id="cloudStatus"></span>
   </div>
   <div class="cloud-note">
-    原理：你填写的数据实时存本机浏览器，启用后<b>同时自动回写</b>到上面仓库的 <code>data.json</code>（通过 GitHub API）。换电脑/清缓存后，打开页面点「拉取云端」即恢复最新版。<br>
-    ⚠️ 安全要点：① 仓库建议设为 <b>Private</b>；② Token 只给 <code>repo</code> 权限、可设过期；③ GitHub Pages 请发布 <code>gh-pages</code> 分支（只放本 HTML），<b>数据文件 data.json 留在 main 分支不发布</b>，避免公开泄露；④ Token 仅存你本机浏览器，不写进 HTML 源码。
+    本系统以<b>云端（GitHub 私有库 data.json）为唯一数据源</b>：两个管理员账号（T10 / 高宏印）登录同一网址、编辑同一份数据，自动实时同步；你改了什么就保存成功什么。<br>
+    • 首次使用：在上方粘贴你的 GitHub Token（仅 repo 权限），仓库/路径已预填、启用默认开启，点「保存设置」即生效，之后无需再动。<br>
+    • 安全：Token 仅存你本机浏览器，不写进公开 HTML；仓库请保持 <b>Private</b>；GitHub Pages 只发布 gh-pages 分支的 HTML，<b>数据文件 data.json 留在 main 分支不发布</b>。
   </div>
 </div>
 
@@ -401,7 +402,7 @@
 
 <!-- ===================== 报批看板 ===================== -->
 <section class="page" id="page-board">
-  <div class="hint edit-hint">本页所有<b>数字、状态、日期、备注均可直接点击修改</b>（双击或点中选区即可编辑），修改后<b>自动保存到本机浏览器</b>，下次打开自动恢复。点「＋添加指标」可扩展看板。「导出 / 打印」可生成 PDF 或纸质稿。</div>
+  <div class="hint edit-hint">本页所有<b>数字、状态、日期、备注均可直接点击修改</b>（双击或点中选区即可编辑），修改后<b>自动保存到云端（两个管理员实时同步）</b>，改了就生效。点「＋添加指标」可扩展看板。「导出 / 打印」可生成 PDF 或纸质稿。</div>
   <div class="ro-hint">当前为只读模式，仅可查看 / 打印，不可编辑。</div>
 
   <div class="section-title">核心指标（KPI）</div>
@@ -572,10 +573,6 @@
     const role = localStorage.getItem('feixi_auth_role') || 'admin';
     document.getElementById('curUser').textContent = (role==='readonly'?'浏览者：':'管理员：') + u;
     setReadonly(role==='readonly');
-    if(role==='readonly' && typeof syncFromCloud==='function'){
-      const cfg = (typeof loadCfg==='function') ? loadCfg() : null;
-      if(cfg && cfg.enabled==='yes') syncFromCloud();
-    }
   }
   function logout(){
     localStorage.removeItem(AUTH_KEY);
@@ -622,32 +619,16 @@
     document.getElementById('saveStamp').textContent='已自动保存 '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
   }
   function saveAll(){
-    const data={};
-    document.querySelectorAll('[data-key]').forEach(el=>{
-      if(el.tagName==='SELECT') data[el.dataset.key]=el.value;
-      else if(el.tagName==='INPUT') data[el.dataset.key]=el.value;
-      else data[el.dataset.key]=el.innerHTML;
-    });
-    localStorage.setItem(KEY, JSON.stringify(data));
+    const snap=snapshotState();
+    cacheLocal(snap);
     stamp();
     scheduleSync();
-    return data;
+    return snap;
   }
   function loadAll(){
-    let data={};
-    try{ data=JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ data={}; }
-    Object.entries(data).forEach(([k,v])=>{
-      const el=document.querySelector('[data-key="'+CSS.escape(k)+'"]');
-      if(!el) return;
-      if(el.tagName==='SELECT'){ el.value=v; paintStatus(el); }
-      else if(el.tagName==='INPUT') el.value=v;
-      else el.innerHTML=v;
-    });
-    restoreAddedSubNodes();
-    applySubOrder();
-    updateProgress();
-    computePhaseBars();
-    if(Object.keys(data).length) stamp();
+    const snap=readCache();
+    if(snap) restoreState(snap);
+    else { updateProgress(); computePhaseBars(); applyWarnings(); applyGate(); }
   }
   function paintStatus(sel){
     sel.className='status-sel s-'+sel.value;
@@ -852,7 +833,7 @@
     const box=sn.parentElement;
     if(dir>0){ const prev=sn.previousElementSibling; if(prev && prev.classList.contains('subnode')) box.insertBefore(sn, prev); }
     else { const next=sn.nextElementSibling; if(next && next.classList.contains('subnode')) box.insertBefore(next, sn); }
-    saveSubOrder();
+    saveAll();
   }
   // 事件委托：任意编辑即保存
   document.addEventListener('input', e=>{ if(e.target.closest('[data-key]')){ saveAll(); if(e.target.classList.contains('ph-area')) computePhaseBars(); if(e.target.closest('.subnode')) saveAddedSubNodes(); } });
@@ -879,8 +860,8 @@
   }
   // 导出纯数据备份（JSON），便于迁移或文件丢失时恢复
   function exportBackup(){
-    const raw=localStorage.getItem(KEY)||'{}';
-    const blob=new Blob([raw],{type:'application/json;charset=utf-8'});
+    const snap=snapshotState();
+    const blob=new Blob([JSON.stringify(snap,null,2)],{type:'application/json;charset=utf-8'});
     const a=document.createElement('a');
     const d=new Date();
     const pad=n=>String(n).padStart(2,'0');
@@ -888,22 +869,37 @@
     a.download='飞西报批工作台_数据备份_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'.json';
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-    alert('已导出数据备份 JSON 文件（仅含数据，不含页面），可用于备份或交他人导入。');
+    alert('已导出云端数据快照 JSON（含全部字段与节点结构），可留存或交他人导入。');
   }
 
-  // ===== 云端同步（GitHub）=====
+  // ===== 云端同步（GitHub，单一数据源；两个管理员实时同步）=====
   const CFG_KEY='feixi_approval_cloud_cfg';
+  const CACHE_KEY='feixi_cache_v2';
   let _syncTimer=null;
+  let _lastSaved=null;   // 上次成功推送/拉取的快照，用于冲突合并
+  let _saveSeq=0;
   function b64encode(str){ return btoa(unescape(encodeURIComponent(str))); }
   function b64decode(b64){ try{ return decodeURIComponent(escape(atob(b64))); }catch(e){ return ''; } }
   function apiUrl(cfg){ return 'https://api.github.com/repos/'+cfg.owner+'/'+cfg.repo+'/contents/'+encodeURIComponent(cfg.path); }
-  function loadCfg(){ try{ return JSON.parse(localStorage.getItem(CFG_KEY)||'null'); }catch(e){ return null; } }
+  function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+  function backoff(n){ return [1000,2000,4000,8000][Math.min(n,3)]; }
+  function nowTime(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+
+  // 默认配置：仓库/路径预填，启用默认开；Token 出于安全不写进公开 HTML，需用户粘贴一次
+  function defaultCfg(){ return { token:'', owner:'jeason0425', repo:'feixi-workbench', path:'data.json', enabled:'yes' }; }
+  function loadCfg(){
+    let c=null;
+    try{ c=JSON.parse(localStorage.getItem(CFG_KEY)||'null'); }catch(e){ c=null; }
+    if(!c) c=defaultCfg();
+    if(!c.owner || !c.repo) c=Object.assign(defaultCfg(), c);
+    return c;
+  }
   function fillCfg(){
-    const cfg=loadCfg()||{};
+    const cfg=loadCfg();
     document.getElementById('cfgToken').value=cfg.token||'';
     document.getElementById('cfgRepo').value=cfg.owner?cfg.owner+'/'+(cfg.repo||''):'';
     document.getElementById('cfgPath').value=cfg.path||'data.json';
-    document.getElementById('cfgEnabled').value=cfg.enabled||'no';
+    document.getElementById('cfgEnabled').value=cfg.enabled||'yes';
   }
   function saveCfg(){
     const repo=document.getElementById('cfgRepo').value.trim();
@@ -912,86 +908,162 @@
     const cfg={ token:document.getElementById('cfgToken').value.trim(), owner:owner, repo:r,
       path:document.getElementById('cfgPath').value.trim()||'data.json', enabled:document.getElementById('cfgEnabled').value };
     localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-    setCloudStatus('设置已保存到本机');
+    setCloudStatus(cfg.token? '设置已保存，云端自动同步已开启' : '已保存，但未填 Token —— 数据暂不同步');
   }
   function setCloudStatus(t){ const e=document.getElementById('cloudStatus'); if(e) e.textContent=t; }
   function toggleCloud(){ document.getElementById('cloudPanel').classList.toggle('open'); fillCfg(); }
-  function collectData(){
-    const data={};
+
+  // —— 状态快照：DOM 即状态，整体捕获（字段值 + 三个动态容器结构/顺序）——
+  function snapshotState(){
+    ['#nodeList','#permitList','#kpiRow'].forEach(sel=>{
+      document.querySelectorAll(sel+' [data-key]').forEach(el=>{
+        if(el.tagName==='INPUT') el.setAttribute('value', el.value);
+        else if(el.tagName==='SELECT'){ [...el.options].forEach(o=>o.removeAttribute('selected')); if(el.selectedOptions[0]) el.selectedOptions[0].setAttribute('selected',''); }
+      });
+    });
+    const fields={};
     document.querySelectorAll('[data-key]').forEach(el=>{
-      if(el.tagName==='SELECT') data[el.dataset.key]=el.value;
-      else if(el.tagName==='INPUT') data[el.dataset.key]=el.value;
-      else data[el.dataset.key]=el.innerHTML;
+      if(el.tagName==='SELECT') fields[el.dataset.key]=el.value;
+      else if(el.tagName==='INPUT') fields[el.dataset.key]=el.value;
+      else fields[el.dataset.key]=el.innerHTML;
     });
-    try{ data.__SUB__=localStorage.getItem(SUB_KEY)||'{}'; }catch(e){}
-    return data;
+    return {
+      v:2, ts:Date.now(),
+      fields:fields,
+      containers:{
+        nodeList:document.getElementById('nodeList').innerHTML,
+        permitList:document.getElementById('permitList').innerHTML,
+        kpiRow:document.getElementById('kpiRow').innerHTML
+      }
+    };
   }
-  function applyData(data){
-    if(!data || !Object.keys(data).length) return;
-    let subDef=null;
-    Object.entries(data).forEach(([k,v])=>{
-      if(k==='__SUB__'){ subDef=v; return; }
-      const el=document.querySelector('[data-key="'+CSS.escape(k)+'"]');
-      if(!el) return;
-      if(el.tagName==='SELECT'){ el.value=v; paintStatus(el); }
-      else if(el.tagName==='INPUT') el.value=v;
-      else el.innerHTML=v;
+  // 旧格式（扁平 key + __SUB__）兼容：转成新结构
+  function normalizeSnap(raw){
+    if(!raw || raw.fields || raw.containers) return raw;
+    const fields={};
+    Object.entries(raw).forEach(([k,v])=>{ if(k!=='__SUB__') fields[k]=v; });
+    return { v:2, ts:raw.ts||Date.now(), fields:fields, containers:{} };
+  }
+  function restoreState(snap){
+    if(!snap) return;
+    // 旧格式（无 fields/无 containers）兜底
+    if(!snap.fields && !snap.containers){
+      const fields={};
+      Object.entries(snap).forEach(([k,v])=>{ if(k!=='__SUB__') fields[k]=v; });
+      snap={ v:2, ts:snap.ts||Date.now(), fields:fields, containers:{} };
+    }
+    if(snap.containers){
+      if(snap.containers.nodeList) document.getElementById('nodeList').innerHTML=snap.containers.nodeList;
+      if(snap.containers.permitList) document.getElementById('permitList').innerHTML=snap.containers.permitList;
+      if(snap.containers.kpiRow) document.getElementById('kpiRow').innerHTML=snap.containers.kpiRow;
+    }
+    if(snap.fields){
+      Object.entries(snap.fields).forEach(([k,v])=>{
+        const el=document.querySelector('[data-key="'+CSS.escape(k)+'"]');
+        if(!el) return;
+        if(el.tagName==='SELECT'){ el.value=v; paintStatus(el); }
+        else if(el.tagName==='INPUT') el.value=v;
+        else el.innerHTML=v;
+      });
+    }
+    // 旧格式遗留的自定义子节点：从 __SUB__ 恢复
+    if(typeof SUB_KEY!=='undefined' && localStorage.getItem(SUB_KEY)){ try{ restoreAddedSubNodes(); }catch(e){} }
+    updateProgress(); computePhaseBars(); applyWarnings(); applyGate();
+  }
+  function cacheLocal(snap){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(snap)); }catch(e){} }
+  function readCache(){ try{ return JSON.parse(localStorage.getItem(CACHE_KEY)||'null'); }catch(e){ return null; } }
+
+  // —— 冲突合并：字段级；容器内结构除非本机改过否则采用远端（保留另一管理员的改动）——
+  function mergeSnapshots(local, remote, base){
+    if(!remote || !base) return local;
+    const merged={ v:2, ts:Date.now(), fields:{}, containers:{} };
+    const keys=new Set([...Object.keys(local.fields||{}), ...Object.keys(remote.fields||{})]);
+    keys.forEach(k=>{
+      const localChanged=(local.fields[k]!==base.fields[k]);
+      merged.fields[k]= localChanged ? local.fields[k] : (remote.fields[k]!==undefined?remote.fields[k]:local.fields[k]);
     });
-    if(subDef){ try{ localStorage.setItem(SUB_KEY, subDef); }catch(e){} }
-    updateProgress();
-    if(subDef) restoreAddedSubNodes();
+    ['nodeList','permitList','kpiRow'].forEach(c=>{
+      const localChanged=(local.containers[c]!==base.containers[c]);
+      merged.containers[c]= localChanged ? local.containers[c] : (remote.containers[c]!==undefined?remote.containers[c]:local.containers[c]);
+    });
+    return merged;
   }
-  function syncToCloud(data){
+
+  // —— 可靠上传：GET→合并→PUT，遇 429/409 退避重试，保证“改了就一定保存成功” ——
+  async function syncToCloud(){
     const cfg=loadCfg();
     if(!cfg || cfg.enabled!=='yes' || !cfg.token || !cfg.owner || !cfg.repo) return;
-    if(!data) data=collectData();
-    const url=apiUrl(cfg);
-    const headers={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','Content-Type':'application/json'};
-    setCloudStatus('正在上传…');
-    fetch(url,{headers})
-      .then(r=> r.ok? r.json(): null)
-      .then(j=>{
-        const body={ message:'feixi workbench sync '+new Date().toISOString(), content:b64encode(JSON.stringify(data)) };
-        if(j && j.sha) body.sha=j.sha;
-        return fetch(url,{method:'PUT',headers,body:JSON.stringify(body)});
-      })
-      .then(r=>{ if(r.ok){ setCloudStatus('☁ 已同步到云端 '+new Date().toLocaleTimeString()); } else { r.text().then(t=>setCloudStatus('上传失败: '+r.status)); } })
-      .catch(e=> setCloudStatus('上传失败: '+e));
+    const local=snapshotState();
+    const mySeq=++_saveSeq;
+    let attempt=0; const maxA=5;
+    while(attempt<maxA){
+      attempt++;
+      try{
+        const h={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'};
+        const gr=await fetch(apiUrl(cfg),{headers:h});
+        let remote=null, sha=null;
+        if(gr.ok){ const j=await gr.json(); try{ remote=normalizeSnap(JSON.parse(b64decode(j.content))); }catch(e){ remote=null; } sha=j.sha; }
+        else if(gr.status===404){ remote=null; sha=null; }
+        else if(gr.status===429){ setCloudStatus('云端限流，重试中…('+attempt+')'); await sleep(backoff(attempt)); continue; }
+        else { setCloudStatus('云端读取失败 '+gr.status); return; }
+
+        const toPush=mergeSnapshots(local, remote, _lastSaved);
+        const ph={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','Content-Type':'application/json'};
+        const body={ message:'feixi workbench sync '+new Date().toISOString(), content:b64encode(JSON.stringify(toPush)) };
+        if(sha) body.sha=sha;
+        const pr=await fetch(apiUrl(cfg),{method:'PUT',headers:ph,body:JSON.stringify(body)});
+        if(pr.ok){ _lastSaved=toPush; cacheLocal(toPush); if(mySeq===_saveSeq) setCloudStatus('☁ 已保存到云端 '+nowTime()); return; }
+        if(pr.status===409){ setCloudStatus('检测到他人改动，正在合并…'); await sleep(300); continue; }
+        if(pr.status===429){ setCloudStatus('云端限流，重试中…('+attempt+')'); await sleep(backoff(attempt)); continue; }
+        setCloudStatus('保存失败 '+pr.status); return;
+      }catch(e){ setCloudStatus('保存异常：'+e.message); return; }
+    }
+    setCloudStatus('保存失败：重试次数超限，请稍后点「立即上传」');
   }
   function scheduleSync(){
+    if(document.getElementById('appRoot').classList.contains('readonly')) return;
     const cfg=loadCfg();
-    if(!cfg || cfg.enabled!=='yes') return;
+    if(!cfg || cfg.enabled!=='yes' || !cfg.token) return;
     clearTimeout(_syncTimer);
-    _syncTimer=setTimeout(()=>syncToCloud(), 2500);
+    _syncTimer=setTimeout(()=>syncToCloud(), 600);
   }
-  function syncFromCloud(){
+  function flushSync(){ clearTimeout(_syncTimer); syncToCloud(); }
+  async function syncFromCloud(){
     const cfg=loadCfg();
-    if(!cfg || !cfg.token || !cfg.owner || !cfg.repo){ setCloudStatus('未配置云端'); return; }
-    const url=apiUrl(cfg);
-    const headers={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'};
-    setCloudStatus('正在拉取…');
-    fetch(url,{headers})
-      .then(r=>{ if(!r.ok) throw new Error('读取失败 '+r.status); return r.json(); })
-      .then(j=>{ const data=JSON.parse(b64decode(j.content)); localStorage.setItem(KEY,JSON.stringify(data)); applyData(data); stamp(); setCloudStatus('☁ 已从云端恢复 '+new Date().toLocaleTimeString()); })
-      .catch(e=> setCloudStatus('拉取失败: '+e.message));
+    if(!cfg || !cfg.token || !cfg.owner || !cfg.repo){ setCloudStatus('未配置云端 Token'); return; }
+    const h={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'};
+    setCloudStatus('正在从云端拉取…');
+    try{
+      const gr=await fetch(apiUrl(cfg),{headers:h});
+      if(!gr.ok) throw new Error('读取失败 '+gr.status);
+      const j=await gr.json();
+      const raw=JSON.parse(b64decode(j.content));
+      // 旧格式遗留的自定义子节点：先存回本地，restoreState 会据此重建
+      if(raw && raw.__SUB__ && typeof SUB_KEY!=='undefined'){ try{ localStorage.setItem(SUB_KEY, raw.__SUB__); }catch(e){} }
+      const data=normalizeSnap(raw);
+      restoreState(data);
+      _lastSaved=data;
+      cacheLocal(data);
+      setCloudStatus('☁ 已从云端同步 '+nowTime());
+    }catch(e){ setCloudStatus('拉取失败：'+e.message+'（显示本机缓存）'); }
   }
   function testConn(){
     const cfg=loadCfg();
     if(!cfg || !cfg.token || !cfg.owner || !cfg.repo){ setCloudStatus('请先填写并保存设置'); return; }
-    const url=apiUrl(cfg);
-    const headers={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'};
+    const h={'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'};
     setCloudStatus('测试连接…');
-    fetch(url,{headers})
+    fetch(apiUrl(cfg),{headers:h})
       .then(r=>{ if(r.ok) setCloudStatus('✓ 连接正常（data.json 已存在）');
         else if(r.status===404) setCloudStatus('✓ 连接正常（data.json 尚不存在，首次保存将创建）');
         else setCloudStatus('✗ 失败: '+r.status); })
       .catch(e=> setCloudStatus('✗ 异常: '+e.message));
   }
+  document.addEventListener('visibilitychange', ()=>{ if(document.hidden) flushSync(); });
   window.addEventListener('DOMContentLoaded', ()=>{
-    loadAll();
+    loadAll();   // 先用本机缓存秒开
     const cfg=loadCfg();
-    if(cfg && cfg.enabled==='yes' && cfg.token && cfg.owner && cfg.repo){ syncFromCloud(); }
-    // 登录态判断：已登录则直接进入，否则停留在登录屏
+    if(cfg && cfg.enabled==='yes' && cfg.token && cfg.owner && cfg.repo){ syncFromCloud(); }   // 云端为唯一真源，登录即拉最新
+    else if(cfg && cfg.enabled==='yes' && !cfg.token){ setCloudStatus('⚠ 已启用云端但未填 Token，数据暂不写云端 —— 点「☁ 云端设置」粘贴 Token'); }
     if(localStorage.getItem(AUTH_KEY)){ showApp(); }
     else {
       document.getElementById('loginScreen').style.display='flex';
