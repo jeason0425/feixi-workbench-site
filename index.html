@@ -787,58 +787,12 @@
     if(!box) return;
     const idx='x'+Date.now();
     box.insertAdjacentHTML('beforeend', buildSubNode(N, idx, '新子节点', '', '', '未启动', '', true));
-    saveAll(); saveAddedSubNodes(); saveSubOrder(); applyWarnings(); updateProgress();
+    saveAll(); applyWarnings(); updateProgress();
   }
   function delSubNode(btn){
     const sn=btn.closest('.subnode'); if(!sn) return;
     sn.remove();
-    saveAll(); saveAddedSubNodes(); saveSubOrder(); applyWarnings(); updateProgress();
-  }
-  const SUB_KEY='feixi_subnodes_v2';
-  function saveAddedSubNodes(){
-    const map={};
-    document.querySelectorAll('#nodeList .subnode[data-added="1"]').forEach(sn=>{
-      const N=sn.closest('.subnodes').getAttribute('data-sub');
-      const idx=sn.getAttribute('data-subidx');
-      const g=k=>{ const el=sn.querySelector('[data-key="node_'+N+'_sub_'+idx+'_'+k+'"]'); return el?el.value:''; };
-      if(!map[N]) map[N]=[];
-      map[N].push({idx:idx, name:g('name'), owner:g('owner'), due:g('due'), status:g('status'), note:g('note')});
-    });
-    try{ localStorage.setItem(SUB_KEY, JSON.stringify(map)); }catch(e){}
-  }
-  function restoreAddedSubNodes(){
-    let map={};
-    try{ map=JSON.parse(localStorage.getItem(SUB_KEY)||'{}'); }catch(e){ map={}; }
-    Object.keys(map).forEach(N=>{
-      const box=document.querySelector('.subnodes[data-sub="'+N+'"]');
-      if(!box) return;
-      map[N].forEach(def=>{
-        box.insertAdjacentHTML('beforeend', buildSubNode(N, def.idx, def.name||'子节点', def.owner||'', def.due||'', def.status||'未启动', def.note||'', true));
-      });
-    });
-    applyWarnings();
-  }
-  // 子节点上下移动 + 顺序持久化（含静态与自定义子节点）
-  const ORDER_KEY='feixi_sub_order_v1';
-  function saveSubOrder(){
-    const map={};
-    document.querySelectorAll('#nodeList .subnodes').forEach(box=>{
-      const N=box.getAttribute('data-sub');
-      map[N]=[...box.querySelectorAll('.subnode')].map(sn=>sn.getAttribute('data-subidx'));
-    });
-    try{ localStorage.setItem(ORDER_KEY, JSON.stringify(map)); }catch(e){}
-  }
-  function applySubOrder(){
-    let map={};
-    try{ map=JSON.parse(localStorage.getItem(ORDER_KEY)||'{}'); }catch(e){ map={}; }
-    Object.keys(map).forEach(N=>{
-      const box=document.querySelector('.subnodes[data-sub="'+N+'"]');
-      if(!box) return;
-      map[N].forEach(id=>{
-        const sn=box.querySelector('.subnode[data-subidx="'+CSS.escape(id)+'"]');
-        if(sn) box.appendChild(sn);
-      });
-    });
+    saveAll(); applyWarnings(); updateProgress();
   }
   function moveSub(btn, dir){
     const sn=btn.closest('.subnode'); if(!sn) return;
@@ -848,8 +802,8 @@
     saveAll();
   }
   // 事件委托：任意编辑即保存
-  document.addEventListener('input', e=>{ if(e.target.closest('[data-key]')){ saveAll(); if(e.target.classList.contains('ph-area')) computePhaseBars(); if(e.target.closest('.subnode')) saveAddedSubNodes(); } });
-  document.addEventListener('change', e=>{ if(e.target.closest('[data-key]')){ if(e.target.tagName==='SELECT'){ paintStatus(e.target); } saveAll(); if(e.target.closest('.subnode')) saveAddedSubNodes(); updateProgress(); } });
+  document.addEventListener('input', e=>{ if(e.target.closest('[data-key]')){ saveAll(); if(e.target.classList.contains('ph-area')) computePhaseBars(); } });
+  document.addEventListener('change', e=>{ if(e.target.closest('[data-key]')){ if(e.target.tagName==='SELECT'){ paintStatus(e.target); } saveAll(); updateProgress(); } });
   // 将当前填写的数据固化进 HTML 并下载（用于覆盖源文件，使数据不依赖浏览器缓存）
   function saveAsFile(){
     // 1. 把 input / select 的当前值同步到 HTML 属性，否则 outerHTML 拿不到用户改后的值
@@ -978,8 +932,6 @@
         else el.innerHTML=v;
       });
     }
-    // 旧格式遗留的自定义子节点：从 __SUB__ 恢复
-    if(typeof SUB_KEY!=='undefined' && localStorage.getItem(SUB_KEY)){ try{ restoreAddedSubNodes(); }catch(e){} }
     updateProgress(); computePhaseBars(); applyWarnings(); applyGate();
   }
   function cacheLocal(snap){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(snap)); }catch(e){} }
@@ -1047,7 +999,6 @@
       const rows=await gr.json();
       if(!rows||!rows.length){ setCloudStatus('云端暂无数据（首次保存将创建）'); return; }
       const raw=rows[0].data;
-      if(raw && raw.__SUB__ && typeof SUB_KEY!=='undefined'){ try{ localStorage.setItem(SUB_KEY, raw.__SUB__); }catch(e){} }
       const data=normalizeSnap(raw);
       restoreState(data);
       _lastSaved=data;
