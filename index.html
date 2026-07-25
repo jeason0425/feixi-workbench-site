@@ -114,11 +114,18 @@
   .prog-bar{height:12px;background:#eef1f5;border-radius:7px;overflow:hidden;}
   .prog-bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--green),#4fd09a);border-radius:7px;transition:width .4s;}
   .node{background:#fff;border:1px solid var(--line);border-left:5px solid var(--gray);border-radius:10px;
-    padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(10,31,61,.05);}
+    padding:14px 16px;margin-bottom:38px;position:relative;box-shadow:0 1px 3px rgba(10,31,61,.05);}
   .node.s-未启动{border-left-color:var(--gray);}
   .node.s-进行中{border-left-color:var(--blue);}
   .node.s-已完成{border-left-color:var(--green);}
   .node.s-受阻{border-left-color:var(--red);}
+  .node:last-child{margin-bottom:12px;}
+  /* 节点间向下箭头连接线（自上而下流程感） */
+  .node:not(:last-child)::after{content:'';position:absolute;left:50%;transform:translateX(-50%);
+    bottom:-24px;width:2px;height:18px;background:var(--navy);}
+  .node:not(:last-child)::before{content:'';position:absolute;left:50%;transform:translateX(-50%);
+    bottom:-32px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;
+    border-top:9px solid var(--gold);}
   .node-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
   .node-idx{background:var(--navy);color:#fff;width:26px;height:26px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none;}
