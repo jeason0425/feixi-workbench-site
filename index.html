@@ -1007,7 +1007,7 @@
         const base=supaBase(cfg);
         const h=supaHeaders(cfg);
         // 先拉远端用于冲突合并
-        const gr=await fetch(base+'?select=id,data,updated_at&limit=1',{headers:h});
+        const gr=await fetch(base+'?id=eq.feixi&select=id,data,updated_at',{headers:h});
         let remote=null;
         if(gr.ok){ const rows=await gr.json(); if(rows&&rows.length) remote=normalizeSnap(rows[0].data); }
         const toPush=mergeSnapshots(local, remote, _lastSaved);
@@ -1035,7 +1035,7 @@
     setCloudStatus('正在从云端拉取…');
     try{
       const base=supaBase(cfg);
-      const gr=await fetch(base+'?select=id,data,updated_at&limit=1',{headers:h});
+      const gr=await fetch(base+'?id=eq.feixi&select=id,data,updated_at',{headers:h});
       if(!gr.ok) throw new Error('读取失败 '+gr.status);
       const rows=await gr.json();
       if(!rows||!rows.length){ setCloudStatus('云端暂无数据（首次保存将创建）'); return; }
