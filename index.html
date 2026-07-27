@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<script>window.__BUILD='29';</script>
+<script>window.__BUILD='29.1';</script>
 <style>
   :root{
     --navy:#0a1f3d;        /* 深靛蓝 */
@@ -944,6 +944,14 @@
       if(snap.containers.permitList) document.getElementById('permitList').innerHTML=snap.containers.permitList;
       if(snap.containers.kpiRow) document.getElementById('kpiRow').innerHTML=snap.containers.kpiRow;
     }
+    // 关键修复：给所有 SELECT 的 option 补显式 value（无 value 时浏览器序列化会变空，
+    // 导致 el.value='已存值' 找不到匹配项、回退第一项「未启动」，表现为「刷新后状态变未启动」）。
+    ['nodeList','permitList','kpiRow'].forEach(function(cid){
+      const c=document.getElementById(cid); if(!c) return;
+      c.querySelectorAll('select').forEach(function(sel){
+        Array.prototype.forEach.call(sel.options, function(o){ if(!o.hasAttribute('value')) o.setAttribute('value', (o.textContent||'').trim()); });
+      });
+    });
     if(snap.fields){
       Object.entries(snap.fields).forEach(([k,v])=>{
         const el=document.querySelector('[data-key="'+CSS.escape(k)+'"]');
