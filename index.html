@@ -954,6 +954,7 @@
   // —— 冲突合并：远端优先（杜绝「本地默认空结构/空值覆盖云端好数据」的竞态丢失）。
   //    仅当本地含远端没有的「新增节点 ID」时，才以本地结构为准（保留用户新增子节点）。
   //    删除/重排不持久（被远端覆盖），以「绝不丢数据」为第一原则。不再依赖 base 三路判断。——
+  function nodeIdsOf(htmlStr){ try{ const doc=new DOMParser().parseFromString(htmlStr||'', 'text/html'); return new Set([...doc.querySelectorAll('[data-node]')].map(e=>e.getAttribute('data-node'))); } catch(e){ return new Set(); } }
   function mergeSnapshots(local, remote, base){
     if(!remote || !remote.fields) return local;
     const merged={ v:2, ts:Date.now(), fields:{}, containers:{} };
@@ -967,8 +968,8 @@
     ['nodeList','permitList','kpiRow'].forEach(c=>{
       const loc=(local.containers&&local.containers[c])||'';
       const rem=(remote.containers&&remote.containers[c]!==undefined)?remote.containers[c]:'';
-      const localIds=new Set([...loc.matchAll(/data-node="([^"]+)"/g)].map(m=>m[1])]);
-      const remoteIds=new Set([...rem.matchAll(/data-node="([^"]+)"/g)].map(m=>m[1])]);
+      const localIds=nodeIdsOf(loc);
+      const remoteIds=nodeIdsOf(rem);
       let localHasNew=false; localIds.forEach(id=>{ if(!remoteIds.has(id)) localHasNew=true; });
       if(localHasNew) merged.containers[c]=loc;        // 本地有新增节点 -> 保留本地结构
       else if(rem) merged.containers[c]=rem;           // 远端有结构 -> 用远端（防本地默认空覆盖）
