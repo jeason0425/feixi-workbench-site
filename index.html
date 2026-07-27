@@ -951,18 +951,28 @@
   function cacheLocal(snap){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(snap)); }catch(e){} }
   function readCache(){ try{ return JSON.parse(localStorage.getItem(CACHE_KEY)||'null'); }catch(e){ return null; } }
 
-  // —— 冲突合并：字段级；容器内结构除非本机改过否则采用远端（保留另一管理员的改动）——
+  // —— 冲突合并：远端优先（杜绝「本地默认空结构/空值覆盖云端好数据」的竞态丢失）。
+  //    仅当本地含远端没有的「新增节点 ID」时，才以本地结构为准（保留用户新增子节点）。
+  //    删除/重排不持久（被远端覆盖），以「绝不丢数据」为第一原则。不再依赖 base 三路判断。——
   function mergeSnapshots(local, remote, base){
-    if(!remote || !base) return local;
+    if(!remote || !remote.fields) return local;
     const merged={ v:2, ts:Date.now(), fields:{}, containers:{} };
-    const keys=new Set([...Object.keys(local.fields||{}), ...Object.keys(remote.fields||{})]);
-    keys.forEach(k=>{
-      const localChanged=(local.fields[k]!==base.fields[k]);
-      merged.fields[k]= localChanged ? local.fields[k] : (remote.fields[k]!==undefined?remote.fields[k]:local.fields[k]);
+    // fields：远端优先；远端空/缺而本地有值则保留本地（本地未推送修改不丢）
+    const fields=Object.assign({}, remote.fields||{});
+    Object.keys(local.fields||{}).forEach(k=>{
+      const lv=local.fields[k], rv=(remote.fields||{})[k];
+      if((rv===undefined||rv===null||rv==='') && lv!==undefined && lv!==null && lv!=='') fields[k]=lv;
     });
+    merged.fields=fields;
     ['nodeList','permitList','kpiRow'].forEach(c=>{
-      const localChanged=(local.containers[c]!==base.containers[c]);
-      merged.containers[c]= localChanged ? local.containers[c] : (remote.containers[c]!==undefined?remote.containers[c]:local.containers[c]);
+      const loc=(local.containers&&local.containers[c])||'';
+      const rem=(remote.containers&&remote.containers[c]!==undefined)?remote.containers[c]:'';
+      const localIds=new Set([...loc.matchAll(/data-node="([^"]+)"/g)].map(m=>m[1])]);
+      const remoteIds=new Set([...rem.matchAll(/data-node="([^"]+)"/g)].map(m=>m[1])]);
+      let localHasNew=false; localIds.forEach(id=>{ if(!remoteIds.has(id)) localHasNew=true; });
+      if(localHasNew) merged.containers[c]=loc;        // 本地有新增节点 -> 保留本地结构
+      else if(rem) merged.containers[c]=rem;           // 远端有结构 -> 用远端（防本地默认空覆盖）
+      else merged.containers[c]=loc;                   // 双方皆空 -> 用本地
     });
     return merged;
   }
