@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>飞西城市更新单元 · 报批工作台</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>window.__BUILD='29';</script>
 <style>
   :root{
     --navy:#0a1f3d;        /* 深靛蓝 */
@@ -844,8 +848,11 @@
   const SB_KEY='feixi_supabase_cfg';
   const CACHE_KEY='feixi_cache_v2';
   let _syncTimer=null;
-  let _lastSaved=null;   // 上次成功推送/拉取的快照，用于冲突合并
+  let _lastSaved=null;   // 上次成功推送/拉取的快照
   let _saveSeq=0;
+  let _ready=false;      // 是否已从云端拉取完成（防止拉取前 push 空结构覆盖云端）
+  let _pendingPush=false;// 拉取完成前若有改动，待补推
+  let _deferPushAfterPull=false;
   function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
   function backoff(n){ return [800,1600,3200,6400][Math.min(n,3)]; }
   function nowTime(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
@@ -975,11 +982,13 @@
     return merged;
   }
 
-  // —— 可靠上传：GET→合并→PUT，遇 429/409 退避重试，保证“改了就一定保存成功” ——
+  // —— 可靠上传：本地权威 upsert（不带任何「远端优先」合并，本地即最新，绝不被云端旧值覆盖）。
+  //    仅当已从云端拉取完成(_ready)才推送；未 ready 时只缓存并标记 pending，pull 完成补推，防止空结构覆盖云端。 ——
   async function pushCloud(){
     if(document.getElementById('appRoot') && document.getElementById('appRoot').classList.contains('readonly')) return; // 只读账号绝不写云端
     const cfg=loadCfg();
     if(!cfg.enabled || !cfg.url || !cfg.anon) return;
+    if(!_ready){ _pendingPush=true; cacheLocal(snapshotState()); return; } // 尚未拉取完，先缓存，pull 完补推
     const local=snapshotState();
     const mySeq=++_saveSeq;
     let attempt=0; const maxA=5;
@@ -987,15 +996,10 @@
       attempt++;
       try{
         const base=supaBase(cfg);
-        const h=supaHeaders(cfg);
-        // 先拉远端用于冲突合并
-        const gr=await fetch(base+'?id=eq.feixi&select=id,data,updated_at',{headers:h});
-        let remote=null;
-        if(gr.ok){ const rows=await gr.json(); if(rows&&rows.length) remote=normalizeSnap(rows[0].data); }
-        const toPush=mergeSnapshots(local, remote, _lastSaved);
-        const body=JSON.stringify({ id:SB_ROW, data:toPush, updated_at:new Date().toISOString() });
-        const pr=await fetch(base, {method:'POST', headers:supaHeaders(cfg,{'Prefer':'resolution=merge-duplicates, return=representation'}), body:body});
-        if(pr.ok){ _lastSaved=toPush; cacheLocal(toPush); if(mySeq===_saveSeq) setCloudStatus('☁ 已保存到云端 '+nowTime()); return; }
+        const h=supaHeaders(cfg, {'Prefer':'resolution=merge-duplicates, return=representation'});
+        const body=JSON.stringify({ id:SB_ROW, data:local, updated_at:new Date().toISOString() });
+        const pr=await fetch(base, {method:'POST', headers:h, body:body});
+        if(pr.ok){ _lastSaved=local; cacheLocal(local); if(mySeq===_saveSeq) setCloudStatus('☁ 已保存到云端 '+nowTime()); return; }
         if(pr.status===409||pr.status===429){ setCloudStatus('云端繁忙，重试中…('+attempt+')'); await sleep(backoff(attempt)); continue; }
         setCloudStatus('保存失败 '+pr.status); return;
       }catch(e){ setCloudStatus('保存异常：'+e.message); return; }
@@ -1007,7 +1011,7 @@
     const cfg=loadCfg();
     if(!cfg.enabled || !cfg.url || !cfg.anon) return;
     clearTimeout(_syncTimer);
-    _syncTimer=setTimeout(()=>pushCloud(), 600);
+    _syncTimer=setTimeout(()=>pushCloud(), 300);
   }
   function flushSync(){ clearTimeout(_syncTimer); pushCloud(); }
   async function pullCloud(){
@@ -1020,14 +1024,24 @@
       const gr=await fetch(base+'?id=eq.feixi&select=id,data,updated_at',{headers:h});
       if(!gr.ok) throw new Error('读取失败 '+gr.status);
       const rows=await gr.json();
-      if(!rows||!rows.length){ setCloudStatus('云端暂无数据（首次保存将创建）'); return; }
-      const raw=rows[0].data;
-      const data=pullMerge(normalizeSnap(raw), readCache());
+      let data;
+      if(!rows||!rows.length){ setCloudStatus('云端暂无数据（首次保存将创建）'); _ready=true; return; }
+      const remote=normalizeSnap(rows[0].data);
+      const localCache=readCache();
+      // ts 优先：本地缓存比云端新（含未推送修改）-> 用本地并补推云端，绝不丢本地修改
+      if(localCache && localCache.ts && remote.ts && localCache.ts>remote.ts){
+        data=localCache; _deferPushAfterPull=true;
+      } else {
+        data=pullMerge(remote, localCache);
+      }
       restoreState(data);
       _lastSaved=data;
       cacheLocal(data);
+      _ready=true;
+      if(_deferPushAfterPull){ _deferPushAfterPull=false; pushCloud(); }
+      if(_pendingPush){ _pendingPush=false; pushCloud(); }
       setCloudStatus('☁ 已从云端同步 '+nowTime());
-    }catch(e){ setCloudStatus('拉取失败：'+e.message+'（显示本机缓存）'); }
+    }catch(e){ setCloudStatus('拉取失败：'+e.message+'（显示本机缓存）'); _ready=true; }
   }
   function testConn(){
     const cfg=loadCfg();
