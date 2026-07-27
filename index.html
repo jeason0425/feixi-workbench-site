@@ -912,6 +912,18 @@
     Object.entries(raw).forEach(([k,v])=>{ if(k!=='__SUB__') fields[k]=v; });
     return { v:2, ts:raw.ts||Date.now(), fields:fields, containers:{} };
   }
+  // 拉取时字段级合并：云端非空优先；云端空/缺失但本地缓存有值则保留本地（防「pull 整体覆盖本地未推送修改」）
+  function pullMerge(remote, local){
+    if(!remote) return local;
+    if(!local || !local.fields) return remote;
+    const fields=Object.assign({}, remote.fields||{});
+    Object.keys(remote.fields||{}).forEach(k=>{
+      const rv=remote.fields[k], lv=local.fields[k];
+      if((rv===undefined||rv===null||rv==='') && lv!==undefined && lv!==null && lv!=='') fields[k]=lv;
+    });
+    Object.keys(local.fields||{}).forEach(k=>{ if(!(k in fields) && local.fields[k]!=='' && local.fields[k]!==undefined) fields[k]=local.fields[k]; });
+    return { v:remote.v||2, ts:remote.ts||Date.now(), fields:fields, containers:remote.containers||local.containers||{} };
+  }
   function restoreState(snap){
     if(!snap) return;
     // 旧格式（无 fields/无 containers）兜底
@@ -957,6 +969,7 @@
 
   // —— 可靠上传：GET→合并→PUT，遇 429/409 退避重试，保证“改了就一定保存成功” ——
   async function pushCloud(){
+    if(document.getElementById('appRoot') && document.getElementById('appRoot').classList.contains('readonly')) return; // 只读账号绝不写云端
     const cfg=loadCfg();
     if(!cfg.enabled || !cfg.url || !cfg.anon) return;
     const local=snapshotState();
@@ -1001,7 +1014,7 @@
       const rows=await gr.json();
       if(!rows||!rows.length){ setCloudStatus('云端暂无数据（首次保存将创建）'); return; }
       const raw=rows[0].data;
-      const data=normalizeSnap(raw);
+      const data=pullMerge(normalizeSnap(raw), readCache());
       restoreState(data);
       _lastSaved=data;
       cacheLocal(data);
@@ -1018,6 +1031,7 @@
       .catch(e=> setCloudStatus('✗ 异常: '+e.message));
   }
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) flushSync(); });
+  window.addEventListener('beforeunload', ()=>{ flushSync(); }); // 关闭/刷新页面前强制保存，防止 600ms 防抖未完成即丢失
   window.addEventListener('DOMContentLoaded', ()=>{
     loadAll();   // 先用本机缓存秒开
     if(localStorage.getItem(AUTH_KEY)){ showApp(); }   // showApp 内自动从云端拉最新（两管理员/浏览者同步）
