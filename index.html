@@ -304,6 +304,25 @@
   #loginScreen{display:none!important;}
 }
 
+  /* ===== 申报材料清单（单元计划调整23子项） ===== */
+  .mat-summary{margin:0 0 16px;}
+  .mat-summary-bar{height:14px;background:#eef1f5;border-radius:8px;overflow:hidden;}
+  .mat-summary-fill{height:100%;width:0;background:linear-gradient(90deg,var(--navy),var(--green));transition:width .3s;}
+  .mat-summary-text{margin-top:6px;font-size:13px;color:var(--navy);font-weight:600;}
+  .mat-item{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--gray);border-radius:8px;padding:10px 14px;margin-bottom:8px;}
+  .mat-item .mat-idx{font-weight:700;color:var(--navy);min-width:20px;text-align:center;}
+  .mat-item .mat-name{min-width:170px;font-weight:600;color:var(--navy);}
+  .mat-item label{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--gray);}
+  .mat-item .mat-note{flex-basis:100%;font-size:12px;color:var(--gray);min-height:18px;}
+  .mat-item.mat-ready{border-left-color:var(--green);}
+  .mat-item.mat-missing{border-left-color:var(--red);}
+  .mat-item.mat-na{border-left-color:var(--gray);opacity:.65;}
+  .mat-item.mat-wip{border-left-color:var(--blue);}
+  .status-sel.s-未备{color:var(--gray);}
+  .status-sel.s-编制中{color:var(--blue);font-weight:600;}
+  .status-sel.s-已备齐{color:var(--green);font-weight:600;}
+  .status-sel.s-缺失待补{color:var(--red);font-weight:600;}
+  .status-sel.s-不适用{color:var(--gray);font-style:italic;}
 </style>
 </head>
 <body>
@@ -413,6 +432,7 @@
   <button id="tab-board" class="active" onclick="switchTab('board')">报批看板</button>
   <button id="tab-flow" onclick="switchTab('flow')">报建流程节点</button>
   <button id="tab-permit" onclick="switchTab('permit')">前置许可</button>
+  <button id="tab-materials" onclick="switchTab('materials')">申报材料</button>
 </nav>
 
 <!-- ===================== 报批看板 ===================== -->
@@ -543,6 +563,32 @@
   <button class="add-btn" onclick="addPermit()">＋ 添加许可项</button>
 </section>
 
+<section class="page hidden" id="page-materials">
+  <div class="hint edit-hint">「单元计划调整（申报）」是<b>最前置关键路径</b>，其 23 子项材料须逐项备齐。每项可改<b>状态 / 责任单位 / 备注</b>，顶部实时显示备齐完成率（已备齐 ÷ 应备，不适用不计入分母）。状态自动着色（灰=未备 蓝=编制中 绿=已备齐 红=缺失待补）。点「＋ 添加材料项」可补齐未列全的子项。</div>
+  <div class="ro-hint">当前为只读模式，仅可查看 / 打印，不可编辑。</div>
+
+  <div class="mat-summary card">
+    <div class="mat-summary-bar"><div class="mat-summary-fill" id="matFill"></div></div>
+    <div class="mat-summary-text" id="matText">已备齐 0 / 应备 0（0%）</div>
+  </div>
+
+  <div id="materialList">
+<div class="mat-item" data-node="mat_1"><span class="mat-idx">1</span><span class="mat-name ed" contenteditable data-key="mat_1_name">申报表</span><label>状态<select class="status-sel s-未备" data-key="mat_1_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_1_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_1_note">备注…</div></div>
+<div class="mat-item" data-node="mat_2"><span class="mat-idx">2</span><span class="mat-name ed" contenteditable data-key="mat_2_name">拆除范围图</span><label>状态<select class="status-sel s-未备" data-key="mat_2_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_2_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_2_note">备注…</div></div>
+<div class="mat-item" data-node="mat_3"><span class="mat-idx">3</span><span class="mat-name ed" contenteditable data-key="mat_3_name">建筑物信息</span><label>状态<select class="status-sel s-未备" data-key="mat_3_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_3_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_3_note">备注…</div></div>
+<div class="mat-item" data-node="mat_4"><span class="mat-idx">4</span><span class="mat-name ed" contenteditable data-key="mat_4_name">权属证明</span><label>状态<select class="status-sel s-未备" data-key="mat_4_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_4_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_4_note">备注…</div></div>
+<div class="mat-item" data-node="mat_5"><span class="mat-idx">5</span><span class="mat-name ed" contenteditable data-key="mat_5_name">现状权属图</span><label>状态<select class="status-sel s-未备" data-key="mat_5_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_5_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_5_note">备注…</div></div>
+<div class="mat-item" data-node="mat_6"><span class="mat-idx">6</span><span class="mat-name ed" contenteditable data-key="mat_6_name">土地信息核查</span><label>状态<select class="status-sel s-未备" data-key="mat_6_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_6_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_6_note">备注…</div></div>
+<div class="mat-item" data-node="mat_7"><span class="mat-idx">7</span><span class="mat-name ed" contenteditable data-key="mat_7_name">拆除范围调整图</span><label>状态<select class="status-sel s-未备" data-key="mat_7_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_7_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_7_note">备注…</div></div>
+<div class="mat-item" data-node="mat_8"><span class="mat-idx">8</span><span class="mat-name ed" contenteditable data-key="mat_8_name">营业执照</span><label>状态<select class="status-sel s-未备" data-key="mat_8_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_8_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_8_note">备注…</div></div>
+<div class="mat-item" data-node="mat_9"><span class="mat-idx">9</span><span class="mat-name ed" contenteditable data-key="mat_9_name">法定代表人</span><label>状态<select class="status-sel s-未备" data-key="mat_9_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_9_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_9_note">备注…</div></div>
+<div class="mat-item" data-node="mat_10"><span class="mat-idx">10</span><span class="mat-name ed" contenteditable data-key="mat_10_name">授权</span><label>状态<select class="status-sel s-未备" data-key="mat_10_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_10_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_10_note">备注…</div></div>
+<div class="mat-item" data-node="mat_11"><span class="mat-idx">11</span><span class="mat-name ed" contenteditable data-key="mat_11_name">地块现状</span><label>状态<select class="status-sel s-未备" data-key="mat_11_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_11_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_11_note">备注…</div></div>
+<div class="mat-item" data-node="mat_12"><span class="mat-idx">12</span><span class="mat-name ed" contenteditable data-key="mat_12_name">更新意愿汇总表</span><label>状态<select class="status-sel s-未备" data-key="mat_12_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label><label>责任单位<input class="ed-input" data-key="mat_12_owner" value=""></label><div class="mat-note ed" contenteditable data-key="mat_12_note">备注…</div></div>
+  </div>
+  <button class="add-btn" onclick="addMaterial()">＋ 添加材料项</button>
+</section>
+
 <footer>飞西城市更新单元 · 报批工作台 ｜ 填的数据实时存本机浏览器；启用「☁ 云端设置」后自动回写 GitHub 仓库，换设备打开即最新。建议定期「导出 / 打印」留档。</footer>
 </div><!-- /appRoot -->
 
@@ -627,9 +673,11 @@
     document.getElementById('page-board').classList.toggle('hidden', t!=='board');
     document.getElementById('page-flow').classList.toggle('hidden', t!=='flow');
     document.getElementById('page-permit').classList.toggle('hidden', t!=='permit');
+    document.getElementById('page-materials').classList.toggle('hidden', t!=='materials');
     document.getElementById('tab-board').classList.toggle('active', t==='board');
     document.getElementById('tab-flow').classList.toggle('active', t==='flow');
     document.getElementById('tab-permit').classList.toggle('active', t==='permit');
+    document.getElementById('tab-materials').classList.toggle('active', t==='materials');
   }
   function stamp(){
     const d=new Date();
@@ -667,6 +715,7 @@
     sels.forEach(paintStatus);
     applyWarnings();
     applyGate();
+    computeMaterialProgress();
   }
   function delNode(btn){
     btn.closest('.node').remove();
@@ -723,6 +772,43 @@
       '<div class="kpi-num ed" contenteditable data-key="'+k+'_v">0</div>';
     wrap.appendChild(div);
     saveAll();
+  }
+  // ===== 申报材料清单（单元计划调整23子项）=====
+  function renumberMat(){
+    [...document.querySelectorAll('#materialList .mat-item')].forEach((it,i)=>{
+      const idx=it.querySelector('.mat-idx'); if(idx) idx.textContent=i+1;
+    });
+  }
+  function addMaterial(){
+    const list=document.getElementById('materialList');
+    const n='x'+Date.now();
+    const div=document.createElement('div');
+    div.className='mat-item'; div.setAttribute('data-node','mat_'+n);
+    div.innerHTML=
+      '<span class="mat-idx">＋</span>'+
+      '<span class="mat-name ed" contenteditable data-key="mat_'+n+'_name">新材料项</span>'+
+      '<label>状态<select class="status-sel s-未备" data-key="mat_'+n+'_status"><option selected>未备</option><option>编制中</option><option>已备齐</option><option>缺失待补</option><option>不适用</option></select></label>'+
+      '<label>责任单位<input class="ed-input" data-key="mat_'+n+'_owner" value=""></label>'+
+      '<div class="mat-note ed" contenteditable data-key="mat_'+n+'_note">备注…</div>';
+    list.appendChild(div);
+    renumberMat(); saveAll(); computeMaterialProgress();
+  }
+  function computeMaterialProgress(){
+    const items=[...document.querySelectorAll('#materialList .mat-item')];
+    const total=items.length; let ready=0, na=0;
+    items.forEach(it=>{
+      const s=it.querySelector('.status-sel'); const v=s?s.value:'';
+      it.classList.remove('mat-ready','mat-missing','mat-na','mat-wip');
+      if(v==='已备齐'){ ready++; it.classList.add('mat-ready'); }
+      else if(v==='缺失待补'){ it.classList.add('mat-missing'); }
+      else if(v==='不适用'){ na++; it.classList.add('mat-na'); }
+      else if(v==='编制中'){ it.classList.add('mat-wip'); }
+    });
+    const denom=total-na;
+    const pct= denom>0? Math.round(ready/denom*100):0;
+    const fill=document.getElementById('matFill'); const txt=document.getElementById('matText');
+    if(fill) fill.style.width=pct+'%';
+    if(txt) txt.textContent='已备齐 '+ready+' / 应备 '+denom+'（'+pct+'%）';
   }
   // 分期拆迁面积率自动计算
   function computePhaseBars(){
@@ -890,7 +976,7 @@
 
   // —— 状态快照：DOM 即状态，整体捕获（字段值 + 三个动态容器结构/顺序）——
   function snapshotState(){
-    ['#nodeList','#permitList','#kpiRow'].forEach(sel=>{
+    ['#nodeList','#permitList','#kpiRow','#materialList'].forEach(sel=>{
       document.querySelectorAll(sel+' [data-key]').forEach(el=>{
         if(el.tagName==='INPUT') el.setAttribute('value', el.value);
         else if(el.tagName==='SELECT'){ [...el.options].forEach(o=>o.removeAttribute('selected')); if(el.selectedOptions[0]) el.selectedOptions[0].setAttribute('selected',''); }
@@ -908,7 +994,8 @@
       containers:{
         nodeList:document.getElementById('nodeList').innerHTML,
         permitList:document.getElementById('permitList').innerHTML,
-        kpiRow:document.getElementById('kpiRow').innerHTML
+        kpiRow:document.getElementById('kpiRow').innerHTML,
+        materialList:document.getElementById('materialList').innerHTML
       }
     };
   }
@@ -943,6 +1030,7 @@
       if(snap.containers.nodeList) document.getElementById('nodeList').innerHTML=snap.containers.nodeList;
       if(snap.containers.permitList) document.getElementById('permitList').innerHTML=snap.containers.permitList;
       if(snap.containers.kpiRow) document.getElementById('kpiRow').innerHTML=snap.containers.kpiRow;
+      if(snap.containers.materialList) document.getElementById('materialList').innerHTML=snap.containers.materialList;
     }
     // 关键修复：给所有 SELECT 的 option 补显式 value（无 value 时浏览器序列化会变空，
     // 导致 el.value='已存值' 找不到匹配项、回退第一项「未启动」，表现为「刷新后状态变未启动」）。
@@ -980,7 +1068,7 @@
       if(lv!==bv) merged.fields[k]=lv;                 // 本地改过 -> 用本地（保存用户的修改）
       else merged.fields[k]=(rv!==undefined?rv:lv);   // 未改 -> 取远端（保留他人改动），远端无则用本地
     });
-    ['nodeList','permitList','kpiRow'].forEach(c=>{
+    ['nodeList','permitList','kpiRow','materialList'].forEach(c=>{
       const loc=(local.containers&&local.containers[c])||'';
       const rem=(remote&&remote.containers&&remote.containers[c]!==undefined)?remote.containers[c]:'';
       const localIds=nodeIdsOf(loc), remoteIds=nodeIdsOf(rem);
