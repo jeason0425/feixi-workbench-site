@@ -323,6 +323,36 @@
   .status-sel.s-已备齐{color:var(--green);font-weight:600;}
   .status-sel.s-缺失待补{color:var(--red);font-weight:600;}
   .status-sel.s-不适用{color:var(--gray);font-style:italic;}
+
+  /* ===== C. 文件/批复链接挂载 ===== */
+  .lnk{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:12px;color:#6b7280;}
+  .lnk-ico{font-size:14px;}
+  .lnk-cap{font-weight:600;color:var(--navy);}
+  .lnk-val{flex:1;min-width:120px;border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:#fafbfc;color:var(--ink);min-height:20px;}
+  .lnk-val:empty:before{content:attr(placeholder);color:#9aa3af;}
+  .lnk-open{border:1px solid var(--blue);background:#eef3ff;color:var(--blue);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:600;flex:none;}
+  .lnk-open:hover{background:var(--blue);color:#fff;}
+
+  /* ===== E. 历史快照对比 ===== */
+  .hist-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;}
+  .add-btn.ghost{background:#fff;border:1px solid var(--line);color:var(--navy);}
+  .add-btn.ghost:hover{background:#f3f6fb;}
+  .hist-count{font-size:12px;color:#9aa3af;}
+  .hist-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media(max-width:760px){.hist-cols{grid-template-columns:1fr;}}
+  .hist-col h4{margin:0 0 10px;font-size:14px;color:var(--navy);border-left:4px solid var(--navy);padding-left:8px;}
+  .hist-list{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff;}
+  .hist-row{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px dashed #eef1f5;font-size:13px;color:var(--ink);cursor:pointer;}
+  .hist-row:last-child{border-bottom:none;}
+  .hist-empty{color:#9aa3af;font-size:13px;padding:10px;}
+  .hist-compare{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#fff;font-size:13px;color:#6b7280;min-height:120px;}
+  .cmp-head{font-weight:700;color:var(--navy);margin-bottom:8px;}
+  .cmp-line{margin:4px 0;}
+  .cmp-sub{margin:12px 0 4px;font-weight:700;color:var(--navy);}
+  .cmp-item{display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px dashed #eef1f5;}
+  .cmp-name{flex:1;font-weight:600;color:var(--ink);}
+  .cmp-from{color:#9aa3af;}
+  .cmp-to{color:var(--green);font-weight:600;}
 </style>
 </head>
 <body>
@@ -433,6 +463,7 @@
   <button id="tab-flow" onclick="switchTab('flow')">报建流程节点</button>
   <button id="tab-permit" onclick="switchTab('permit')">前置许可</button>
   <button id="tab-materials" onclick="switchTab('materials')">申报材料</button>
+  <button id="tab-history" onclick="switchTab('history')">历史快照</button>
 </nav>
 
 <!-- ===================== 报批看板 ===================== -->
@@ -589,6 +620,29 @@
   <button class="add-btn" onclick="addMaterial()">＋ 添加材料项</button>
 </section>
 
+<!-- ===================== 历史快照 ===================== -->
+<section class="page hidden" id="page-history">
+  <div class="hint edit-hint">周期性保存进度快照（<b>本机留存，不上云</b>，避免触碰云端同步核心），可回看「上周 vs 本周」变化，或导出交他人。<b>本机模式</b>随浏览器/设备；换设备请用「导出 / 导入 JSON」迁移。点「📸 保存当前快照」记录当下整体进度%、各节点状态、材料完成率。</div>
+  <div class="ro-hint">当前为只读模式，仅可查看，不可保存 / 导出。</div>
+
+  <div class="hist-toolbar">
+    <button class="add-btn" onclick="saveSnapshot()">📸 保存当前快照</button>
+    <button class="add-btn ghost" onclick="exportHistory()">导出 JSON</button>
+    <label class="add-btn ghost">导入 JSON<input type="file" id="histFile" accept="application/json" onchange="importHistory(this)" style="display:none"></label>
+    <span id="histCount" class="hist-count"></span>
+  </div>
+  <div class="hist-cols">
+    <div class="hist-col">
+      <h4>快照列表（勾选两份对比）</h4>
+      <div id="histList" class="hist-list"></div>
+    </div>
+    <div class="hist-col">
+      <h4>对比结果</h4>
+      <div id="histCompare" class="hist-compare">请在左侧勾选 <b>2 份</b> 快照进行对比。</div>
+    </div>
+  </div>
+</section>
+
 <footer>飞西城市更新单元 · 报批工作台 ｜ 填的数据实时存本机浏览器；启用「☁ 云端设置」后自动回写 GitHub 仓库，换设备打开即最新。建议定期「导出 / 打印」留档。</footer>
 </div><!-- /appRoot -->
 
@@ -674,10 +728,13 @@
     document.getElementById('page-flow').classList.toggle('hidden', t!=='flow');
     document.getElementById('page-permit').classList.toggle('hidden', t!=='permit');
     document.getElementById('page-materials').classList.toggle('hidden', t!=='materials');
+    document.getElementById('page-history').classList.toggle('hidden', t!=='history');
     document.getElementById('tab-board').classList.toggle('active', t==='board');
     document.getElementById('tab-flow').classList.toggle('active', t==='flow');
     document.getElementById('tab-permit').classList.toggle('active', t==='permit');
     document.getElementById('tab-materials').classList.toggle('active', t==='materials');
+    document.getElementById('tab-history').classList.toggle('active', t==='history');
+    if(t==='history') renderHistory();
   }
   function stamp(){
     const d=new Date();
@@ -694,7 +751,7 @@
   function loadAll(){
     const snap=readCache();
     if(snap) restoreState(snap);
-    else { updateProgress(); computePhaseBars(); applyWarnings(); applyGate(); }
+    else { updateProgress(); computePhaseBars(); applyWarnings(); applyGate(); migrateLinks(); renderHistory(); }
   }
   function paintStatus(sel){
     sel.className='status-sel s-'+sel.value;
@@ -744,6 +801,7 @@
       '<div class="node-note ed" contenteditable data-key="node_'+n+'_note">备注…</div>'+
       '</div>';
     list.appendChild(div);
+    migrateLinks();
     saveAll(); updateProgress();
   }
   function addPermit(){
@@ -791,6 +849,7 @@
       '<label>责任单位<input class="ed-input" data-key="mat_'+n+'_owner" value=""></label>'+
       '<div class="mat-note ed" contenteditable data-key="mat_'+n+'_note">备注…</div>';
     list.appendChild(div);
+    migrateLinks();
     renumberMat(); saveAll(); computeMaterialProgress();
   }
   function computeMaterialProgress(){
@@ -809,6 +868,27 @@
     const fill=document.getElementById('matFill'); const txt=document.getElementById('matText');
     if(fill) fill.style.width=pct+'%';
     if(txt) txt.textContent='已备齐 '+ready+' / 应备 '+denom+'（'+pct+'%）';
+  }
+  // ===== C. 文件/批复链接挂载：给每个节点卡片 / 材料卡片补一个链接字段（带防重 guard）=====
+  function migrateLinks(){
+    document.querySelectorAll('#nodeList .node, #materialList .mat-item').forEach(card=>{
+      if(card.querySelector('.lnk')) return;
+      const nameEl=card.querySelector('[data-key$="_name"]');
+      const key = nameEl ? nameEl.dataset.key.replace(/_name$/, '') : ('card_'+Math.random().toString(36).slice(2));
+      const lnk=document.createElement('div'); lnk.className='lnk'; lnk.innerHTML=
+        '<span class="lnk-ico">📎</span><span class="lnk-cap">批复/文件链接</span>'+
+        '<span class="lnk-val ed" contenteditable="true" data-key="'+key+'_link" placeholder="粘贴URL（政府回函/批复/会议纪要）"></span>'+
+        '<button class="lnk-open" onclick="openLink(this)">↗打开</button>';
+      const body=card.querySelector('.node-body')||card;
+      body.appendChild(lnk);
+    });
+  }
+  function openLink(btn){
+    const card=btn.closest('.node, .mat-item'); if(!card) return;
+    const v=((card.querySelector('.lnk-val')||{}).textContent||'').trim();
+    const m=v.match(/https?:\/\/[^\s]+/);
+    if(!m){ alert('请先在「批复/文件链接」处粘贴以 http(s):// 开头的链接'); return; }
+    window.open(m[0], '_blank');
   }
   // 分期拆迁面积率自动计算
   function computePhaseBars(){
@@ -845,21 +925,31 @@
       else { wb.className='warn-badge w-ok'; wb.textContent='正常 · 剩'+diff+'天'; }
     });
   }
-  // ===== 前置闸口锁定 =====
+  // ===== 前置依赖链置灰（D）：按 DOM 顺序，前一主节点状态≠已完成 → 后续节点自动置灰 + 「⏳ 待前置」徽标 =====
   function applyGate(){
-    const g=document.querySelector('[data-key="node_1_status"]');
-    const open = g && g.value==='已完成';
-    document.querySelectorAll('#nodeList .node').forEach((n,i)=>{
-      if(i===0) return;
-      if(open){ n.classList.remove('locked'); const lb=n.querySelector('.lock-badge'); if(lb) lb.remove(); }
-      else {
+    const nodes=[...document.querySelectorAll('#nodeList .node')];
+    for(let i=0;i<nodes.length;i++){
+      const n=nodes[i];
+      const head=n.querySelector('.node-head');
+      const lb=n.querySelector('.node-head .lock-badge');
+      if(i===0){ if(lb) lb.remove(); n.classList.remove('locked'); continue; } // 首个节点无前置，永不置灰
+      const prev=nodes[i-1];
+      const prevSel=prev.querySelector('.status-sel');
+      const prevStatus=prevSel?prevSel.value:'';
+      if(prevStatus!=='已完成'){
         n.classList.add('locked');
-        if(!n.querySelector('.lock-badge')){
-          const b=document.createElement('span'); b.className='lock-badge'; b.textContent='🔒 待前置闸口';
-          n.querySelector('.node-head').appendChild(b);
+        const prevName=((prev.querySelector('[data-key$="_name"]')||{}).textContent||'前置节点').trim();
+        if(!lb){
+          const b=document.createElement('span'); b.className='lock-badge';
+          if(head) head.appendChild(b);
+          lb=b;
         }
+        lb.textContent='⏳ 待前置：'+(prevName.length>12?prevName.slice(0,12)+'…':prevName);
+      } else {
+        n.classList.remove('locked');
+        if(lb) lb.remove();
       }
-    });
+    }
   }
   // ===== 子节点：自定义添加 / 删除 / 持久化 =====
   function buildSubNode(N, idx, name, owner, due, status, note, added){
@@ -928,6 +1018,83 @@
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),2000);
     alert('已导出云端数据快照 JSON（含全部字段与节点结构），可留存或交他人导入。');
+  }
+
+  // ===== E. 历史快照（本机 localStorage，避免触碰 Supabase 同步核心）=====
+  const HIST_KEY='feixi_history_v1';
+  const HIST_CAP=60;
+  function histLoad(){ try{ return JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); }catch(e){ return []; } }
+  function histSave(a){ try{ localStorage.setItem(HIST_KEY, JSON.stringify(a)); }catch(e){} }
+  function captureSnapshot(){
+    const progEl=document.getElementById('progText');
+    const progM=(progEl?progEl.textContent:'').match(/（(\d+)%）/);
+    const prog=progM?parseInt(progM[1]):0;
+    const matEl=document.getElementById('matText');
+    const matM=(matEl?matEl.textContent:'').match(/（(\d+)%）/);
+    const matPct=matM?parseInt(matM[1]):0;
+    const nodes={};
+    document.querySelectorAll('#nodeList .node').forEach(n=>{
+      const nm=(n.querySelector('[data-key$="_name"]')||{}).textContent||'';
+      const st=(n.querySelector('.status-sel')||{}).value||'';
+      if(nm) nodes[nm]=st;
+    });
+    return { ts:Date.now(), prog:prog, matPct:matPct, nodes:nodes };
+  }
+  function saveSnapshot(){
+    if(document.getElementById('appRoot').classList.contains('readonly')){ alert('只读模式不可保存快照'); return; }
+    const a=histLoad(); a.push(captureSnapshot());
+    while(a.length>HIST_CAP) a.shift();
+    histSave(a); renderHistory();
+    alert('已保存当前快照（共 '+a.length+' 份）。');
+  }
+  function fmtTs(ts){ const d=new Date(ts); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+  function renderHistory(){
+    const a=histLoad(); const list=document.getElementById('histList'); const cnt=document.getElementById('histCount');
+    if(cnt) cnt.textContent='已存 '+a.length+' 份快照（本机）';
+    if(!list) return;
+    if(!a.length){ list.innerHTML='<div class="hist-empty">暂无快照，点上方「📸 保存当前快照」记录当下进度。</div>'; return; }
+    list.innerHTML=a.map((s,i)=>{
+      const label=fmtTs(s.ts)+' · 进度'+s.prog+'% · 材料'+s.matPct+'%';
+      return '<label class="hist-row"><input type="checkbox" class="hist-pick" value="'+i+'" onchange="onPickHist()"> <span>'+escHTML(label)+'</span></label>';
+    }).join('');
+  }
+  function onPickHist(){
+    const picks=[...document.querySelectorAll('.hist-pick:checked')].map(c=>parseInt(c.value)).sort((x,y)=>x-y);
+    const c=document.getElementById('histCompare');
+    if(picks.length===2) compareHistory(picks[0],picks[1]);
+    else if(c) c.innerHTML='已选 '+picks.length+' 份，请选满 <b>2 份</b> 对比。';
+  }
+  function compareHistory(i,j){
+    const a=histLoad(); const A=a[i], B=a[j]; if(!A||!B) return;
+    const older = A.ts<=B.ts? A:B, newer = A.ts<=B.ts? B:A;
+    let html='<div class="cmp-head">对比：'+fmtTs(older.ts)+' → '+fmtTs(newer.ts)+'</div>';
+    html+='<div class="cmp-line">整体进度：'+older.prog+'% → <b>'+newer.prog+'%</b>（'+(newer.prog-older.prog>=0?'+':'')+(newer.prog-older.prog)+'）</div>';
+    html+='<div class="cmp-line">材料完成率：'+older.matPct+'% → <b>'+newer.matPct+'%</b>（'+(newer.matPct-older.matPct>=0?'+':'')+(newer.matPct-older.matPct)+'）</div>';
+    const names=new Set([...Object.keys(older.nodes),...Object.keys(newer.nodes)]);
+    let changed='';
+    names.forEach(nm=>{
+      const ov=older.nodes[nm]||'—', nv=newer.nodes[nm]||'—';
+      if(ov!==nv) changed+='<div class="cmp-item"><span class="cmp-name">'+escHTML(nm)+'</span><span class="cmp-from">'+escHTML(ov)+'</span>→<span class="cmp-to">'+escHTML(nv)+'</span></div>';
+    });
+    html+='<div class="cmp-sub">节点状态变化（'+(changed?'':'无')+'）</div>'+(changed||'');
+    const c=document.getElementById('histCompare'); if(c) c.innerHTML=html;
+  }
+  function exportHistory(){
+    const a=histLoad();
+    const blob=new Blob([JSON.stringify(a,null,2)],{type:'application/json;charset=utf-8'});
+    const el=document.createElement('a'); el.href=URL.createObjectURL(blob);
+    el.download='飞西报批历史快照_'+fmtTs(Date.now()).replace(/[: ]/g,'-')+'.json';
+    el.click(); setTimeout(()=>URL.revokeObjectURL(el.href),2000);
+  }
+  function importHistory(input){
+    const f=input.files&&input.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{ try{
+      const data=JSON.parse(r.result); if(!Array.isArray(data)) throw 0;
+      const a=histLoad().concat(data); while(a.length>HIST_CAP) a.shift();
+      histSave(a); renderHistory(); alert('已导入 '+data.length+' 份快照，共 '+a.length+' 份。');
+    }catch(e){ alert('导入失败：文件格式不正确'); } input.value=''; };
+    r.readAsText(f);
   }
 
   // ===== 云端同步（Supabase，单一数据源；两个管理员/浏览者实时同步，零配置）=====
@@ -1050,6 +1217,7 @@
       });
     }
     updateProgress(); computePhaseBars(); applyWarnings(); applyGate();
+    migrateLinks(); renderHistory();
   }
   function cacheLocal(snap){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(snap)); }catch(e){} }
   function readCache(){ try{ return JSON.parse(localStorage.getItem(CACHE_KEY)||'null'); }catch(e){ return null; } }
