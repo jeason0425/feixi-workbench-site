@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<script>window.__BUILD='29.1';</script>
+<script>window.__BUILD='31.1';</script>
 <style>
   :root{
     --navy:#0a1f3d;        /* 深靛蓝 */
@@ -1201,11 +1201,9 @@
     }
     // 关键修复：给所有 SELECT 的 option 补显式 value（无 value 时浏览器序列化会变空，
     // 导致 el.value='已存值' 找不到匹配项、回退第一项「未启动」，表现为「刷新后状态变未启动」）。
-    ['nodeList','permitList','kpiRow'].forEach(function(cid){
-      const c=document.getElementById(cid); if(!c) return;
-      c.querySelectorAll('select').forEach(function(sel){
-        Array.prototype.forEach.call(sel.options, function(o){ if(!o.hasAttribute('value')) o.setAttribute('value', (o.textContent||'').trim()); });
-      });
+    // v31.1：从「列容器」改为「全页所有 select」，覆盖任意容器（含 materialList 及未来模块），杜绝漏网。
+    document.querySelectorAll('select').forEach(function(sel){
+      Array.prototype.forEach.call(sel.options, function(o){ if(!o.hasAttribute('value')) o.setAttribute('value', (o.textContent||'').trim()); });
     });
     if(snap.fields){
       Object.entries(snap.fields).forEach(([k,v])=>{
@@ -1254,6 +1252,14 @@
     if(!cfg.enabled || !cfg.url || !cfg.anon) return;
     if(!_ready){ _pendingPush=true; cacheLocal(snapshotState()); return; } // 尚未拉取完，先缓存，pull 完补推
     const local=snapshotState();
+    // v31.1 安全护栏：防止「批量状态被重置」误推上云（曾发生整体清成未启动的事故）。
+    // 若上一次成功保存有 ≥5 个非默认状态、本次快照却为 0，判定为异常批量清空，拦截上传并告警。
+    const _countND=function(snap){ if(!snap||!snap.fields) return 0; let n=0; for(const k in snap.fields){ if(k.endsWith('_status') && snap.fields[k] && snap.fields[k]!=='未启动') n++; } return n; };
+    const _lastND=_countND(_lastSaved), _curND=_countND(local);
+    if(_lastND>=5 && _curND===0){
+      setCloudStatus('⚠ 检测到状态被批量清空，已拦截上传以防数据丢失。请刷新页面或点「立即上传」重试。');
+      return;
+    }
     const mySeq=++_saveSeq;
     let attempt=0; const maxA=5;
     while(attempt<maxA){
