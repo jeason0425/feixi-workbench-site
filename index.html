@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<script>window.__BUILD='31.1';</script>
+<script>window.__BUILD='31.2';</script>
 <style>
   :root{
     --navy:#0a1f3d;        /* 深靛蓝 */
@@ -447,7 +447,7 @@
   <div class="cloud-actions">
     <button class="btn tiny" onclick="saveCfg()">保存设置</button>
     <button class="btn tiny" onclick="testConn()">连接测试</button>
-    <button class="btn tiny" onclick="pushCloud()">立即上传</button>
+    <button class="btn tiny" onclick="pushCloud(true)">立即上传</button>
     <button class="btn tiny" onclick="pullCloud()">拉取云端</button>
     <span class="cloud-status" id="cloudStatus"></span>
   </div>
@@ -1104,6 +1104,9 @@
   let _lastSaved=null;   // 上次成功推送/拉取的快照
   let _saveSeq=0;
   let _ready=false;      // 是否已从云端拉取完成（防止拉取前 push 空结构覆盖云端）
+  // 统计快照中「非默认状态」个数（用于安全护栏判定批量清空/空缓存覆盖）
+  function _countND(snap){ if(!snap||!snap.fields) return 0; let n=0; for(const k in snap.fields){ if(k.endsWith('_status') && snap.fields[k] && snap.fields[k]!=='未启动') n++; } return n; }
+  let _cloudND=0;        // 云端当前真实进度数（pull 成功后更新），用于护栏条件B
   let _pendingPush=false;// 拉取完成前若有改动，待补推
   let _deferPushAfterPull=false;
   function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
@@ -1246,19 +1249,25 @@
 
   // —— 可靠上传：本地权威 upsert（不带任何「远端优先」合并，本地即最新，绝不被云端旧值覆盖）。
   //    仅当已从云端拉取完成(_ready)才推送；未 ready 时只缓存并标记 pending，pull 完成补推，防止空结构覆盖云端。 ——
-  async function pushCloud(){
+  async function pushCloud(force){
     if(document.getElementById('appRoot') && document.getElementById('appRoot').classList.contains('readonly')) return; // 只读账号绝不写云端
     const cfg=loadCfg();
     if(!cfg.enabled || !cfg.url || !cfg.anon) return;
     if(!_ready){ _pendingPush=true; cacheLocal(snapshotState()); return; } // 尚未拉取完，先缓存，pull 完补推
     const local=snapshotState();
-    // v31.1 安全护栏：防止「批量状态被重置」误推上云（曾发生整体清成未启动的事故）。
-    // 若上一次成功保存有 ≥5 个非默认状态、本次快照却为 0，判定为异常批量清空，拦截上传并告警。
-    const _countND=function(snap){ if(!snap||!snap.fields) return 0; let n=0; for(const k in snap.fields){ if(k.endsWith('_status') && snap.fields[k] && snap.fields[k]!=='未启动') n++; } return n; };
+    // v31.2 安全护栏（双重拦截）：防止「旧空缓存 / 异常重置」覆盖云端真实进度。
+    // 条件A：本次会话内从有进度(≥5)变成全空(0) → 异常重置，拦截。
+    // 条件B：云端当前已有真实进度(≥5)但本次推送本地几乎为空(<5) → 旧空缓存覆盖，拦截。
     const _lastND=_countND(_lastSaved), _curND=_countND(local);
-    if(_lastND>=5 && _curND===0){
-      setCloudStatus('⚠ 检测到状态被批量清空，已拦截上传以防数据丢失。请刷新页面或点「立即上传」重试。');
-      return;
+    if(!force){
+      if(_lastND>=5 && _curND===0){
+        setCloudStatus('⚠ 检测到状态被批量清空，已拦截上传以防数据丢失。如确认要清空，请点「立即上传」强制保存。');
+        return;
+      }
+      if(_cloudND>=5 && _curND<5){
+        setCloudStatus('⚠ 云端已有真实进度，本地几乎为空（疑似旧页面/空缓存），已拦截上传以防覆盖。请先刷新页面再操作。');
+        return;
+      }
     }
     const mySeq=++_saveSeq;
     let attempt=0; const maxA=5;
@@ -1305,7 +1314,7 @@
         data=pullMerge(remote, localCache);
       }
       restoreState(data);
-      _lastSaved=data;
+      _lastSaved=data; _cloudND=_countND(remote);
       cacheLocal(data);
       _ready=true;
       if(_deferPushAfterPull){ _deferPushAfterPull=false; pushCloud(); }
