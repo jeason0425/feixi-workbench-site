@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<script>window.__BUILD='31.3';</script>
+<script>window.__BUILD='31.4';</script>
 <style>
   :root{
     --navy:#0a1f3d;        /* 深靛蓝 */
@@ -967,7 +967,7 @@
   function addSubNode(N){
     const box=document.querySelector('.subnodes[data-sub="'+N+'"]');
     if(!box) return;
-    const idx='x'+Date.now();
+    const idx='x'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
     box.insertAdjacentHTML('beforeend', buildSubNode(N, idx, '新子节点', '', '', '未启动', '', true));
     saveAll(); applyWarnings(); updateProgress();
   }
@@ -1188,7 +1188,28 @@
     Object.keys(local.fields||{}).forEach(k=>{ if(!(k in fields) && local.fields[k]!=='' && local.fields[k]!==undefined) fields[k]=local.fields[k]; });
     return { v:remote.v||2, ts:remote.ts||Date.now(), fields:fields, containers:remote.containers||local.containers||{} };
   }
-  function restoreState(snap){
+    // 自动愈合：同一节点内若出现重复 data-subidx（历史上因 Date.now() 同毫秒生成撞键所致），
+  // 给重复项分配全新唯一 id，并同步改写其 data-subidx 与所有 data-key，恢复各自独立可编辑。
+  function healDuplicateSubIdx(){
+    document.querySelectorAll('.subnodes').forEach(function(box){
+      const seen={};
+      box.querySelectorAll('.subnode').forEach(function(sn){
+        let idx=sn.getAttribute('data-subidx'); if(!idx) return;
+        if(seen[idx]){
+          let fresh;
+          do { fresh='x'+Date.now()+'_'+Math.random().toString(36).slice(2,8); } while(seen[fresh]);
+          seen[fresh]=true;
+          sn.setAttribute('data-subidx', fresh);
+          sn.querySelectorAll('[data-key]').forEach(function(el){
+            const k=el.getAttribute('data-key')||'';
+                        const nk=k.split('_sub_'+idx+'_').join('_sub_'+fresh+'_');
+            if(nk!==k) el.setAttribute('data-key', nk);
+          });
+        } else { seen[idx]=true; }
+      });
+    });
+  }
+function restoreState(snap){
     if(!snap) return;
     // 旧格式（无 fields/无 containers）兜底
     if(!snap.fields && !snap.containers){
@@ -1218,6 +1239,7 @@
         else el.innerHTML=v;
       });
     }
+    healDuplicateSubIdx();
     updateProgress(); computePhaseBars(); applyWarnings(); applyGate();
     migrateLinks(); renderHistory();
   }
