@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<script>window.__BUILD='31.4';</script>
+<script>window.__BUILD='31.5';</script>
 <style>
   :root{
     --navy:#0a1f3d;        /* 深靛蓝 */
@@ -1312,18 +1312,32 @@ function restoreState(snap){
     if(!cfg.enabled || !cfg.url || !cfg.anon) return;
     if(!_ready){ _pendingPush=true; cacheLocal(snapshotState()); return; } // 尚未拉取完，先缓存，pull 完补推
     const local=snapshotState();
-    // v31.2 安全护栏（双重拦截）：防止「旧空缓存 / 异常重置」覆盖云端真实进度。
-    // 条件A：本次会话内从有进度(≥5)变成全空(0) → 异常重置，拦截。
-    // 条件B：云端当前已有真实进度(≥5)但本次推送本地几乎为空(<5) → 旧空缓存覆盖，拦截。
     const _lastND=_countND(_lastSaved), _curND=_countND(local);
     if(!force){
+      // 条件A：本次会话内从有进度(≥5)变成全空(0) → 异常重置，拦截。
       if(_lastND>=5 && _curND===0){
         setCloudStatus('⚠ 检测到状态被批量清空，已拦截上传以防数据丢失。如确认要清空，请点「立即上传」强制保存。');
         return;
       }
-      if(_cloudND>=5 && _curND<5){
-        setCloudStatus('⚠ 云端已有真实进度，本地几乎为空（疑似旧页面/空缓存），已拦截上传以防覆盖。请先刷新页面再操作。');
-        return;
+      // 条件B（v31.5 服务端权威护栏）：本地几乎为空(<5)时，实时向云端核对真实进度，
+      // 不依赖客户端 _cloudND（旧缓存页 / pullCloud 未跑完时 _cloudND 为 0 会漏拦，是反复丢失根因）。
+      // 云端已有真实进度(≥5)而本地几乎为空(<5) → 判定为旧空缓存覆盖，拦截上传。
+      if(_curND<5){
+        try{
+          const gr=await fetch(supaBase(cfg)+'?id=eq.feixi&select=data',{headers:supaHeaders(cfg)});
+          if(gr.ok){
+            const rows=await gr.json();
+            if(rows&&rows.length){
+              const cf=(rows[0].data&&rows[0].data.fields)||{};
+              let cloudND=0; for(const k in cf){ if(k.endsWith('_status')&&cf[k]&&cf[k]!=='未启动') cloudND++; }
+              _cloudND=cloudND;
+              if(cloudND>=5){
+                setCloudStatus('⚠ 云端已有真实进度('+cloudND+'项)，本地('+_curND+'项)疑似旧页面/空缓存，已拦截上传以防覆盖。请先刷新页面再操作。');
+                return;
+              }
+            }
+          }
+        }catch(e){ /* 核对失败不阻断正常保存 */ }
       }
     }
     const mySeq=++_saveSeq;
